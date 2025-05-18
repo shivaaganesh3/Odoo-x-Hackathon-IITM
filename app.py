@@ -1,8 +1,11 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session
-from database import User, Base
+from database import User, Base, Project, Tag, PriorityEnum
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from werkzeug.security import generate_password_hash, check_password_hash
+from datetime import datetime
+import os
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-here'  # Change this to a secure secret key
@@ -67,9 +70,119 @@ def signup():
 
 @app.route('/dashboard')
 def dashboard():
+
     if 'user_id' not in session:
         return redirect(url_for('login'))
-    return render_template('dashboard.html', user_name=session['user_name'])
+    user = db_session.query(User).get(session['user_id'])
+    if not user:
+        flash('User not found.', 'error')
+        return redirect(url_for('login'))
+
+    projects = user.projects + user.collaborations
+    return render_template('dashboard.html', user_name=session['user_name'], projects=projects)
+
+@app.route('/project/create', methods=['GET', 'POST'])
+def create_project():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    if request.method == 'POST':
+        name = request.form['name']
+        description = request.form['description']
+        deadline = datetime.strptime(request.form['deadline'], '%Y-%m-%d') if request.form['deadline'] else None
+        priority = request.form['priority']
+        tags = [tag.strip() for tag in request.form['tags'].split(',') if tag.strip()]
+        
+        project = Project(
+            name=name,
+            description=description,
+            deadline=deadline,
+            priority=PriorityEnum[priority],
+            owner_id=session['user_id']
+        )
+        
+        # Handle image upload
+        if 'image' in request.files:
+            file = request.files['image']
+            if file.filename != '':
+                filename = secure_filename(file.filename)
+                file.save(os.path.join('static', 'uploads', filename))
+                project.image = f'/static/uploads/{filename}'
+        
+        # Handle tags
+        for tag_name in tags:
+            tag = db_session.query(Tag).filter_by(name=tag_name).first()
+            if not tag:
+                tag = Tag(name=tag_name)
+                db_session.add(tag)
+            project.tags.append(tag)
+        
+        try:
+            db_session.add(project)
+            db_session.commit()
+            flash('Project created successfully!', 'success')
+            return redirect(url_for('dashboard'))
+        except Exception as e:
+            db_session.rollback()
+            flash('An error occurred while creating the project.', 'error')
+    
+    return render_template('create_project.html')
+
+@app.route('/project/<int:project_id>')
+def view_project(project_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    project = db_session.query(Project).get(project_id)
+    if not project:
+        flash('Project not found.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    return render_template('view_project.html', project=project)
+
+@app.route('/project/<int:project_id>/edit', methods=['GET', 'POST'])
+def edit_project(project_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    project = db_session.query(Project).get(project_id)
+    if not project or project.owner_id != session['user_id']:
+        flash('You do not have permission to edit this project.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    if request.method == 'POST':
+        project.name = request.form['name']
+        project.description = request.form['description']
+        project.deadline = datetime.strptime(request.form['deadline'], '%Y-%m-%d') if request.form['deadline'] else None
+        project.priority = PriorityEnum[request.form['priority']]
+        
+        # Handle image upload
+        if 'image' in request.files:
+            file = request.files['image']
+            if file.filename != '':
+                filename = secure_filename(file.filename)
+                file.save(os.path.join('static', 'uploads', filename))
+                project.image = f'/static/uploads/{filename}'
+        
+        # Update tags
+        new_tags = [tag.strip() for tag in request.form['tags'].split(',') if tag.strip()]
+        project.tags.clear()
+        for tag_name in new_tags:
+            tag = db_session.query(Tag).filter_by(name=tag_name).first()
+            if not tag:
+                tag = Tag(name=tag_name)
+                db_session.add(tag)
+            project.tags.append(tag)
+        
+        try:
+            db_session.commit()
+            flash('Project updated successfully!', 'success')
+            return redirect(url_for('view_project', project_id=project.id))
+        except:
+            db_session.rollback()
+            flash('An error occurred while updating the project.', 'error')
+    
+    return render_template('edit_project.html', project=project)
 
 @app.route('/logout')
 def logout():

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ project.name }} - Task Manager</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .navbar {
+            margin-bottom: 30px;
+        }
+        .project-header {
+            background-color: #f8f9fa;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+        .project-image {
+            max-width: 100%;
+            height: auto;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .tag {
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="#">Task Manager</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('dashboard') }}">Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('logout') }}">Logout</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="project-header">
+            <div class="row">
+                <div class="col-md-8">
+                    <h1>{{ project.name }}</h1>
+                    <div class="mb-3">
+                        {% for tag in project.tags %}
+                        <span class="badge bg-secondary tag">{{ tag.name }}</span>
+                        {% endfor %}
+                    </div>
+                    <p class="lead">{{ project.description }}</p>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <p><strong>Project Manager:</strong> {{ project.owner.name }}</p>
+                        </div>
+                        <div class="col-md-4">
+                            <p><strong>Priority:</strong> {{ project.priority.value }}</p>
+                        </div>
+                        <div class="col-md-4">
+                            <p><strong>Deadline:</strong> {{ project.deadline.strftime('%Y-%m-%d') if project.deadline }}</p>
+                        </div>
+                    </div>
+                    {% if project.owner_id == session['user_id'] %}
+                    <a href="{{ url_for('edit_project', project_id=project.id) }}" class="btn btn-primary">Edit Project</a>
+                    {% endif %}
+                </div>
+                <div class="col-md-4">
+                    {% if project.image %}
+                    <img src="{{ project.image }}" alt="Project Image" class="project-image">
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-8">
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h3 class="mb-0">Tasks</h3>
+                        <a href="#" class="btn btn-primary btn-sm">Add Task</a>
+                    </div>
+                    <div class="card-body">
+                        {% if project.tasks %}
+                        <div class="list-group">
+                            {% for task in project.tasks %}
+                            <div class="list-group-item">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h5 class="mb-1">{{ task.name }}</h5>
+                                    <small>Due: {{ task.deadline.strftime('%Y-%m-%d') if task.deadline }}</small>
+                                </div>
+                                <p class="mb-1">{{ task.description }}</p>
+                                <small>Assigned to: {{ task.assignee.name if task.assignee }}</small>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <p class="text-muted">No tasks have been created for this project yet.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="mb-0">Team Members</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="list-group">
+                            <div class="list-group-item">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h6 class="mb-0">{{ project.owner.name }}</h6>
+                                    <span class="badge bg-primary">Owner</span>
+                                </div>
+                            </div>
+                            {% for collaborator in project.collaborators %}
+                            <div class="list-group-item">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h6 class="mb-0">{{ collaborator.name }}</h6>
+                                    <span class="badge bg-secondary">Collaborator</span>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

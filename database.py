@@ -29,11 +29,11 @@ project_collaborators = Table(
 
 class User(Base):
     __tablename__ = 'users'
-
+    
     id = Column(Integer, primary_key=True)
-    name = Column(String)
     email = Column(String, unique=True, nullable=False)
-    password_hash = Column(String)
+    password_hash = Column(String, nullable=False)
+    name = Column(String)
 
     projects = relationship("Project", back_populates="owner")
     collaborations = relationship("Project", secondary=project_collaborators, back_populates="collaborators")
@@ -46,6 +46,8 @@ class Project(Base):
     name = Column(String, nullable=False)
     image = Column(String)
     description = Column(Text)
+    deadline = Column(DateTime)
+    priority = Column(Enum(PriorityEnum))
     owner_id = Column(Integer, ForeignKey('users.id'))
 
     owner = relationship("User", back_populates="projects")
