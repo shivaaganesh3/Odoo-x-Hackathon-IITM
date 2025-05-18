@@ -74,7 +74,7 @@ def dashboard():
         return redirect(url_for('login'))
     user = db_session.query(User).get(session['user_id'])
     projects = user.projects + user.collaborations
-    return render_template('dashboard.html', user_name=session['user_name'], projects=projects)
+    return render_template('dashboard.html', user_name=session['user_name'], projects=projects, user=user)
 
 @app.route('/project/create', methods=['GET', 'POST'])
 def create_project():
@@ -189,6 +189,12 @@ def add_task(project_id):
         flash('You do not have permission to add tasks to this project.', 'error')
         return redirect(url_for('dashboard'))
     
+    # Validate required fields
+    name = request.form.get('name')
+    if not name:
+        flash('Task name is required.', 'error')
+        return redirect(url_for('view_project', project_id=project_id))
+    
     # Validate assignee is either owner or collaborator
     assignee_id = request.form.get('assignee_id')
     if not assignee_id:
@@ -201,12 +207,21 @@ def add_task(project_id):
         return redirect(url_for('view_project', project_id=project_id))
     
     try:
+        # Process deadline
+        deadline = None
+        if request.form.get('deadline'):
+            try:
+                deadline = datetime.strptime(request.form['deadline'], '%Y-%m-%d')
+            except ValueError:
+                flash('Invalid deadline format.', 'error')
+                return redirect(url_for('view_project', project_id=project_id))
+        
         # Create new task
         task = Task(
-            name=request.form['name'],
-            description=request.form.get('description'),
-            deadline=datetime.strptime(request.form['deadline'], '%Y-%m-%d') if request.form.get('deadline') else None,
-            priority=PriorityEnum[request.form['priority']],
+            name=name,
+            description=request.form.get('description', ''),
+            deadline=deadline,
+            priority=PriorityEnum[request.form.get('priority', 'medium')],
             project_id=project_id,
             assignee_id=assignee_id
         )
@@ -215,14 +230,16 @@ def add_task(project_id):
         if 'image' in request.files:
             file = request.files['image']
             if file.filename != '':
-                filename = secure_filename(file.filename)
-                file.save(os.path.join('static', 'uploads', filename))
-                task.image = f'/static/uploads/{filename}'
+                try:
+                    filename = secure_filename(file.filename)
+                    file.save(os.path.join('static', 'uploads', filename))
+                    task.image = f'/static/uploads/{filename}'
+                except Exception as e:
+                    flash('Error uploading image. Task will be created without an image.', 'warning')
 
         db_session.add(task)
         db_session.commit()
         flash('Task created successfully!', 'success')
-        flash('Task added successfully!', 'success')
     except Exception as e:
         db_session.rollback()
         flash('An error occurred while adding the task.', 'error')
@@ -263,6 +280,66 @@ def add_collaborator(project_id):
         flash('An error occurred while adding the collaborator.', 'error')
     
     return redirect(url_for('view_project', project_id=project_id))
+
+@app.route('/new_task', methods=['POST'])
+def new_task():
+    # print("--------------------new task-----------------")
+    # print(request.form)
+    project_id = request.form.get('project_id')
+    # Check if user is logged in
+    if 'user_id' not in session:
+        flash('Please login first.', 'error')
+        return redirect(url_for('login'))
+    # print("--------------------PROJECT ID-----------------")
+    # print("PROJECT ID : ", project_id)
+
+    project = db_session.query(Project).get(project_id)
+    # print("--------------------CHECKING-----------------")
+    user = db_session.query(User).get(session['user_id'])
+    # user = User.query.get(session['user_id'])
+
+    # Check if user is project owner or collaborator
+    if user.id != project.owner_id and user not in project.collaborators:
+        flash('You do not have permission to create tasks in this project.', 'error')
+        return redirect(url_for('dashboard'))
+
+    try:
+        # Process form data
+        name = request.form.get('name')
+        description = request.form.get('description')
+        priority = request.form.get('priority', 'medium')
+        deadline = request.form.get('deadline')
+                # Create new task
+        new_task = Task(
+            name=name,
+            description=description,
+            priority=PriorityEnum[priority],
+            deadline=datetime.strptime(deadline, '%Y-%m-%d') if deadline else None,
+            project_id=project_id,
+            assignee_id=user.id
+        )
+        # Handle image upload
+        if 'image' in request.files:
+            file = request.files['image']
+            if file.filename != '':
+                try:
+                    filename = secure_filename(file.filename)
+                    file.save(os.path.join('static', 'uploads', filename))
+                    new_task.image = f'/static/uploads/{filename}'
+                except Exception as e:
+                    flash('Error uploading image. Task will be created without an image.', 'warning')
+
+
+
+        db_session.add(new_task)
+        db_session.commit()
+        flash('Task created successfully!', 'success')
+
+    except Exception as e:
+        db_session.rollback()
+        flash('An error occurred while creating the task.', 'error')
+
+    return redirect(url_for('dashboard'))
 
 @app.route('/logout')
 def logout():

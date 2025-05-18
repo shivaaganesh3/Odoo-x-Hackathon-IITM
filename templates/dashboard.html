@@ -42,6 +42,43 @@
 
         <div class="row mb-4">
             <div class="col-12 d-flex justify-content-between align-items-center">
+                <h2>My Tasks</h2>
+                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newTaskModal">
+                    New Task
+                </button>
+            </div>
+        </div>
+
+        <div class="row mb-5">
+            {% for task in user.assigned_tasks %}
+            <div class="col-md-4 mb-4">
+                <div class="card h-100">
+                    {% if task.image %}
+                    <img src="{{ task.image }}" class="card-img-top" alt="Task Image">
+                    {% endif %}
+                    <div class="card-body">
+                        <h5 class="card-title">{{ task.name }}</h5>
+                        <p class="card-text">{{ task.description[:100] }}{% if task.description|length > 100 %}...{% endif %}</p>
+                        <div class="mb-2">
+                            {% for tag in task.tags %}
+                            <span class="badge bg-secondary me-1">{{ tag.name }}</span>
+                            {% endfor %}
+                        </div>
+                        <p class="card-text">
+                            <small class="text-muted">
+                                <strong>Project:</strong> {{ task.project.name }}<br>
+                                <strong>Priority:</strong> {{ task.priority.value }}<br>
+                                <strong>Deadline:</strong> {{ task.deadline.strftime('%Y-%m-%d') if task.deadline }}
+                            </small>
+                        </p>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-12 d-flex justify-content-between align-items-center">
                 <h2>Projects</h2>
                 <a href="{{ url_for('create_project') }}" class="btn btn-primary">New Project</a>
             </div>
@@ -79,6 +116,58 @@
                 </div>
             </div>
             {% endfor %}
+        </div>
+    </div>
+
+    <!-- New Task Modal -->
+    <div class="modal fade" id="newTaskModal" tabindex="-1" aria-labelledby="newTaskModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="newTaskModalLabel">Create New Task</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form action="{{ url_for('new_task') }}" method="POST" enctype="multipart/form-data">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="taskName" class="form-label">Task Name</label>
+                            <input type="text" class="form-control" id="taskName" name="name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="taskDescription" class="form-label">Description</label>
+                            <textarea class="form-control" id="taskDescription" name="description" rows="3"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="projectSelect" class="form-label">Project</label>
+                            <select class="form-select" id="projectSelect" name="project_id" required>
+                                {% for project in projects %}
+                                <option value="{{ project.id }}">{{ project.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="taskPriority" class="form-label">Priority</label>
+                            <select class="form-select" id="taskPriority" name="priority">
+                                <option value="low">Low</option>
+                                <option value="medium" selected>Medium</option>
+                                <option value="high">High</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="taskDeadline" class="form-label">Deadline</label>
+                            <input type="date" class="form-control" id="taskDeadline" name="deadline">
+                        </div>
+                        <div class="mb-3">
+                            <label for="taskImage" class="form-label">Task Image</label>
+                            <input type="file" class="form-control" id="taskImage" name="image" accept="image/*">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-primary">Create Task</button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 
