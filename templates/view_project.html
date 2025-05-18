@@ -86,7 +86,9 @@
                 <div class="card mb-4">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h3 class="mb-0">Tasks</h3>
-                        <a href="#" class="btn btn-primary btn-sm">Add Task</a>
+                        {% if project.owner_id == session['user_id'] %}
+                        <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addTaskModal">Add Task</button>
+                        {% endif %}
                     </div>
                     <div class="card-body">
                         {% if project.tasks %}
@@ -98,6 +100,8 @@
                                     <small>Due: {{ task.deadline.strftime('%Y-%m-%d') if task.deadline }}</small>
                                 </div>
                                 <p class="mb-1">{{ task.description }}</p>
+                                <small>Assigned to: {{ task.assignee.name }}</small>
+                                <span class="badge bg-{{ task.priority.value|lower }}">{{ task.priority.value }}</span>
                                 <small>Assigned to: {{ task.assignee.name if task.assignee }}</small>
                             </div>
                             {% endfor %}
@@ -111,8 +115,11 @@
 
             <div class="col-md-4">
                 <div class="card">
-                    <div class="card-header">
+                    <div class="card-header d-flex justify-content-between align-items-center">
                         <h3 class="mb-0">Team Members</h3>
+                        {% if project.owner_id == session['user_id'] %}
+                        <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addCollaboratorModal">Add Member</button>
+                        {% endif %}
                     </div>
                     <div class="card-body">
                         <div class="list-group">
@@ -133,6 +140,108 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Task Modal -->
+    <div class="modal fade" id="addTaskModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add New Task</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form action="{{ url_for('add_task', project_id=project.id) }}" method="POST" enctype="multipart/form-data">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="taskName" class="form-label">Task Name</label>
+                            <input type="text" class="form-control" id="taskName" name="name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="taskDescription" class="form-label">Description</label>
+                            <textarea class="form-control" id="taskDescription" name="description" rows="3"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="taskAssignee" class="form-label">Assign To</label>
+                            <select class="form-select" id="taskAssignee" name="assignee_id" required>
+                                <option value="{{ project.owner.id }}">{{ project.owner.name }} (Owner)</option>
+                                {% for collaborator in project.collaborators %}
+                                <option value="{{ collaborator.id }}">{{ collaborator.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="taskDeadline" class="form-label">Deadline</label>
+                            <input type="date" class="form-control" id="taskDeadline" name="deadline">
+                        </div>
+                        <div class="mb-3">
+                            <label for="taskPriority" class="form-label">Priority</label>
+                            <select class="form-select" id="taskPriority" name="priority" required>
+                                <option value="low">Low</option>
+                                <option value="medium">Medium</option>
+                                <option value="high">High</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="taskImage" class="form-label">Task Image</label>
+                            <input type="file" class="form-control" id="taskImage" name="image" accept="image/*">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-primary">Create Task</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Collaborator Modal -->
+    <div class="modal fade" id="addCollaboratorModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add Team Member</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form action="{{ url_for('add_collaborator', project_id=project.id) }}" method="POST">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="collaboratorEmail" class="form-label">Team Member's Email</label>
+                            <input type="email" class="form-control" id="collaboratorEmail" name="email" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-primary">Add Team Member</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Collaborator Modal -->
+    <div class="modal fade" id="addCollaboratorModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add Team Member</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form action="{{ url_for('add_collaborator', project_id=project.id) }}" method="POST">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="collaboratorEmail" class="form-label">Member Email</label>
+                            <input type="email" class="form-control" id="collaboratorEmail" name="email" required>
+                            <div class="form-text">Enter the email address of the user you want to add as a team member.</div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-primary">Add Member</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>

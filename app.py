@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session
-from database import User, Base, Project, Tag, PriorityEnum
+from database import User, Base, Project, Tag, Task, PriorityEnum
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -70,14 +70,9 @@ def signup():
 
 @app.route('/dashboard')
 def dashboard():
-
     if 'user_id' not in session:
         return redirect(url_for('login'))
     user = db_session.query(User).get(session['user_id'])
-    if not user:
-        flash('User not found.', 'error')
-        return redirect(url_for('login'))
-
     projects = user.projects + user.collaborations
     return render_template('dashboard.html', user_name=session['user_name'], projects=projects)
 
@@ -183,6 +178,91 @@ def edit_project(project_id):
             flash('An error occurred while updating the project.', 'error')
     
     return render_template('edit_project.html', project=project)
+
+@app.route('/project/<int:project_id>/add_task', methods=['POST'])
+def add_task(project_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    project = db_session.query(Project).get(project_id)
+    if not project or project.owner_id != session['user_id']:
+        flash('You do not have permission to add tasks to this project.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    # Validate assignee is either owner or collaborator
+    assignee_id = request.form.get('assignee_id')
+    if not assignee_id:
+        flash('Assignee is required.', 'error')
+        return redirect(url_for('view_project', project_id=project_id))
+    
+    assignee = db_session.query(User).get(assignee_id)
+    if not assignee or (assignee.id != project.owner_id and assignee not in project.collaborators):
+        flash('Invalid assignee selected.', 'error')
+        return redirect(url_for('view_project', project_id=project_id))
+    
+    try:
+        # Create new task
+        task = Task(
+            name=request.form['name'],
+            description=request.form.get('description'),
+            deadline=datetime.strptime(request.form['deadline'], '%Y-%m-%d') if request.form.get('deadline') else None,
+            priority=PriorityEnum[request.form['priority']],
+            project_id=project_id,
+            assignee_id=assignee_id
+        )
+
+        # Handle image upload
+        if 'image' in request.files:
+            file = request.files['image']
+            if file.filename != '':
+                filename = secure_filename(file.filename)
+                file.save(os.path.join('static', 'uploads', filename))
+                task.image = f'/static/uploads/{filename}'
+
+        db_session.add(task)
+        db_session.commit()
+        flash('Task created successfully!', 'success')
+        flash('Task added successfully!', 'success')
+    except Exception as e:
+        db_session.rollback()
+        flash('An error occurred while adding the task.', 'error')
+    
+    return redirect(url_for('view_project', project_id=project_id))
+
+@app.route('/project/<int:project_id>/add_collaborator', methods=['POST'])
+def add_collaborator(project_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    project = db_session.query(Project).get(project_id)
+    if not project or project.owner_id != session['user_id']:
+        flash('You do not have permission to add collaborators to this project.', 'error')
+        return redirect(url_for('view_project', project_id=project_id))
+    
+    try:
+        email = request.form['email']
+        user = db_session.query(User).filter_by(email=email).first()
+        
+        if not user:
+            flash('User with this email does not exist.', 'error')
+            return redirect(url_for('view_project', project_id=project_id))
+        
+        if user.id == project.owner_id:
+            flash('Project owner cannot be added as a collaborator.', 'error')
+            return redirect(url_for('view_project', project_id=project_id))
+        
+        if user in project.collaborators:
+            flash('User is already a collaborator.', 'error')
+            return redirect(url_for('view_project', project_id=project_id))
+        
+        project.collaborators.append(user)
+        db_session.commit()
+        flash('Collaborator added successfully!', 'success')
+    except Exception as e:
+        db_session.rollback()
+        flash('An error occurred while adding the collaborator.', 'error')
+    
+    return redirect(url_for('view_project', project_id=project_id))
 
 @app.route('/logout')
 def logout():
