@@ -1,4 +1,5 @@
 # Synergy Sphere - Project Management Platform
+## Odoo × IITM Hackathon Submission
 
 A modern, full-stack project management application built with Vue.js frontend and Flask backend. Synergy Sphere enables teams to collaborate efficiently through project management, task tracking, team coordination, and real-time discussions.
 
@@ -6,11 +7,13 @@ A modern, full-stack project management application built with Vue.js frontend a
 
 ### Core Functionality
 - **User Authentication**: Secure registration, login, and role-based access control
-- **Project Management**: Create, update, delete, and organize projects
+- **Project Management**: Create, update, delete, and organize projects with deadlines and priority levels
 - **Task Management**: Full CRUD operations for tasks with status tracking, priority levels, and due dates
 - **Team Collaboration**: Add team members to projects and assign tasks
 - **Discussion Forums**: Project-based discussions with threaded conversations
 - **Smart Task Prioritization**: Intelligent priority scoring system for task management
+- **Tag System**: Organize projects and tasks with customizable tags
+- **Image Upload**: Add images to projects and tasks for better visualization
 
 ### User Roles
 - **Regular Users**: Can create projects, manage tasks, and participate in discussions
@@ -49,6 +52,14 @@ A modern, full-stack project management application built with Vue.js frontend a
 - **Node.js** (v16 or higher)
 - **Python** (v3.8 or higher)
 - **Git**
+
+### Quick Start
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/shivaaganesh3/Odoo-x-Hackathon-IITM.git
+   cd Odoo-x-Hackathon-IITM
+   ```
 
 ### Backend Setup
 
@@ -163,56 +174,25 @@ A modern, full-stack project management application built with Vue.js frontend a
 2. Deploy `dist/` folder to web server
 3. Configure environment variables for production API
 
-## 🧪 Development
+## 📸 Screenshots
 
-### Code Quality Standards
-- **Meaningful naming conventions** for variables, functions, and classes
-- **Modular architecture** with clear separation of concerns
-- **Consistent formatting** and coding standards
-- **Comprehensive error handling** and validation
-- **Clean code practices** with minimal complexity
-
-### Project Structure
-```
-synergy-sphere/
-├── backend/
-│   ├── routes/          # API endpoint blueprints
-│   ├── models.py        # Database models
-│   ├── app.py           # Flask application factory
-│   ├── config.py        # Configuration settings
-│   └── requirements.txt # Python dependencies
-└── synergy-sphere-frontend/
-    ├── src/
-    │   ├── pages/       # Vue.js page components
-    │   ├── components/  # Reusable Vue components
-    │   ├── store/       # Pinia state management
-    │   └── router/      # Vue Router configuration
-    └── package.json     # Node.js dependencies
-```
+The application includes visual documentation with project and task views:
+- Project management interface
+- Task tracking dashboard
+- Team collaboration features
 
 ## 🤝 Contributing
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
-3. Follow coding standards and best practices
-4. Commit changes with meaningful messages
-5. Push to the branch (`git push origin feature/AmazingFeature`)
-6. Open a Pull Request
+This project was developed for the Odoo × IITM Hackathon. For contributions or questions, please create an issue or pull request.
 
-## 📝 License
+## 📄 License
 
-This project is open source and available under the [MIT License](LICENSE).
+This project is licensed under the MIT License - see the LICENSE file for details.
 
-## 🆘 Troubleshooting
+## 👥 Team
 
-### Common Issues
-- **CORS errors**: Verify backend CORS configuration matches frontend URL
-- **Database errors**: Ensure database is initialized with `setup_db.py`
-- **Authentication issues**: Check Flask-Security configuration and session settings
-
-### Support
-For technical support or questions, please create an issue in the project repository.
+Developed for the Odoo × IITM Hackathon by the Synergy Sphere team.
 
 ---
 
-**Built with ❤️ using Vue.js and Flask** 
+**Repository**: [https://github.com/shivaaganesh3/Odoo-x-Hackathon-IITM](https://github.com/shivaaganesh3/Odoo-x-Hackathon-IITM)
