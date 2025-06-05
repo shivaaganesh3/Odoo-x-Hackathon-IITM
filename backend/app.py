@@ -9,11 +9,16 @@ from routes.project import project_bp
 from routes.task import task_bp
 from routes.team import team_bp
 from routes.discussion import discussion_bp
+from routes.custom_status import custom_status_bp
 
 def create_app():
     app = Flask(__name__)
     app.config.from_object('config.Config')
-    CORS(app, supports_credentials=True, origins=["http://localhost:5173"])
+    CORS(app, 
+         supports_credentials=True, 
+         origins=["http://localhost:5173", "http://localhost:5174"],
+         allow_headers=["Content-Type", "Authorization"],
+         methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
 
 
     db.init_app(app)
@@ -28,6 +33,7 @@ def create_app():
     app.register_blueprint(task_bp, url_prefix='/api/tasks')
     app.register_blueprint(team_bp, url_prefix='/api/team')
     app.register_blueprint(discussion_bp, url_prefix='/api/discussions')
+    app.register_blueprint(custom_status_bp, url_prefix='/api/custom-status')
 
     return app
 

@@ -56,6 +56,27 @@ class Projects(db.Model):
     tasks = db.relationship('Tasks', backref='project', lazy=True)
     team_members = db.relationship('TeamMembers', backref='project', lazy=True)
     discussions = db.relationship('Discussions', backref='project', lazy=True)
+    custom_statuses = db.relationship('CustomStatus', backref='project', lazy=True, cascade='all, delete-orphan')
+
+
+# ------------------ CUSTOM STATUS ------------------
+class CustomStatus(db.Model):
+    __tablename__ = 'custom_status'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text)
+    color = db.Column(db.String(7), default='#6B7280')  # Hex color code
+    position = db.Column(db.Integer, default=0)  # For ordering statuses
+    is_default = db.Column(db.Boolean, default=False)  # Mark default status for new tasks
+    project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Relationships
+    tasks = db.relationship('Tasks', backref='custom_status', lazy=True)
+
+    # Unique constraint: status name must be unique per project
+    __table_args__ = (db.UniqueConstraint('name', 'project_id', name='unique_status_per_project'),)
 
 
 # ------------------ TEAM MEMBERS ------------------
@@ -74,13 +95,25 @@ class Tasks(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(150), nullable=False)
     description = db.Column(db.Text)
-    status = db.Column(db.String(50), default='To-Do')  # To-Do, In Progress, Done
+    
+    # Updated to reference custom status instead of hardcoded string
+    status_id = db.Column(db.Integer, db.ForeignKey('custom_status.id'), nullable=True)
+    
     due_date = db.Column(db.Date)
-    priority = db.Column(db.String(20), default='Medium')
+    priority = db.Column(db.String(20), default='Medium')  # Low, Medium, High, Urgent
+    priority_score = db.Column(db.Float, default=0.0)  # Smart calculated priority score
+    
+    # Smart Task Prioritization Engine fields
+    effort_score = db.Column(db.Integer, default=3)  # 1=Very Easy, 2=Easy, 3=Medium, 4=Hard, 5=Very Hard
+    impact_score = db.Column(db.Integer, default=3)  # 1=Low, 2=Medium-Low, 3=Medium, 4=High, 5=Critical
+    dependency_map = db.Column(db.JSON, default=list)  # List of task IDs that depend on this task
+    blocked_by = db.Column(db.JSON, default=list)  # List of task IDs that block this task
+    
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False)
     assigned_to = db.Column(db.Integer, db.ForeignKey('users.id'))
-    priority = db.Column(db.String(20), default='Medium')  # Low, Medium, High, Urgent
-
+    
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 # ------------------ DISCUSSIONS ------------------
@@ -96,18 +129,3 @@ class Discussions(db.Model):
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False)
 
     replies = db.relationship('Discussions', backref=db.backref('parent', remote_side=[id]), lazy=True)
-# ------------------ TASKS ------------------
-class Tasks(db.Model):
-    __tablename__ = 'tasks'
-    __table_args__ = {'extend_existing': True}
-    id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(150), nullable=False)
-    description = db.Column(db.Text)
-    status = db.Column(db.String(50), default='To-Do')  # To-Do, In Progress, Done
-    due_date = db.Column(db.Date)
-
-    # 🔥 NEW: Smart prioritization score
-    priority_score = db.Column(db.Integer, default=0)  # Lower = more urgent
-
-    project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False)
-    assigned_to = db.Column(db.Integer, db.ForeignKey('users.id'))

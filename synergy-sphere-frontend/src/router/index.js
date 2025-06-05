@@ -8,6 +8,9 @@ import CreateProjectPage from '../pages/CreateProjectPage.vue'
 import TeamPage from '../pages/TeamPage.vue'
 import CalendarPage from '../pages/CalendarPage.vue'
 import SettingsPage from '../pages/SettingsPage.vue'
+import CustomStatusManager from '../pages/CustomStatusManager.vue'
+import TestConnection from '../pages/TestConnection.vue'
+import SmartDashboard from '../pages/SmartDashboard.vue'
 
 const routes = [
   { 
@@ -34,6 +37,12 @@ const routes = [
     meta: { requiresAuth: true }
   },
   { 
+    path: '/smart-dashboard', 
+    name: 'SmartDashboard',
+    component: SmartDashboard,
+    meta: { requiresAuth: true }
+  },
+  { 
     path: '/projects', 
     name: 'Projects',
     component: ProjectsPage,
@@ -50,6 +59,18 @@ const routes = [
     name: 'ProjectDetail',
     component: ProjectDetailPage,
     meta: { requiresAuth: true }
+  },
+  { 
+    path: '/custom-status', 
+    name: 'CustomStatus',
+    component: CustomStatusManager,
+    meta: { requiresAuth: true }
+  },
+  { 
+    path: '/test-connection', 
+    name: 'TestConnection',
+    component: TestConnection,
+    meta: { requiresAuth: false }
   },
   { 
     path: '/team', 

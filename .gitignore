@@ -21,6 +21,82 @@ wheels/
 *.egg
 MANIFEST
 
+# Virtual Environment
+venv/
+ENV/
+env/
+.venv/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+taskmanager.db*
+synergysphere.db*
+instance/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.yarn-integrity
+
+# Vue.js
+dist/
+.nuxt
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+logs
+*.log
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+
+# Backup files
+*.backup
+*.bak
+
+# Test files (keeping important ones)
+test_*.py
+!test_registration.py
+!test_flask_db.py
+!test_system.py
+
+# Temporary files
+*.tmp
+*.temp
+
 # PyInstaller
 *.manifest
 *.spec
@@ -51,7 +127,6 @@ local_settings.py
 db.sqlite3
 
 # Flask stuff:
-instance/
 .webassets-cache
 
 # Scrapy stuff:
@@ -75,15 +150,6 @@ celerybeat-schedule
 # SageMath parsed files
 *.sage.py
 
-# Environments
-.env
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
-
 # Spyder project settings
 .spyderproject
 .spyproject
@@ -99,28 +165,7 @@ venv.bak/
 .dmypy.json
 dmypy.json
 
-# Database files
-*.db
-*.sqlite
-*.sqlite3
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-
 # Node modules (for frontend)
-node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

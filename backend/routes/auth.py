@@ -1,11 +1,12 @@
 from flask import Blueprint, request, jsonify
 from flask_security.utils import hash_password, verify_password, login_user, logout_user
 from flask_security import current_user
-from models import Users
+from models import Users, Projects, Tasks
 from database import db
 from flask_security import SQLAlchemyUserDatastore
 from models import Users, Roles
 from flask_security import login_required, current_user
+from datetime import datetime, date
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -50,21 +51,31 @@ def login():
         print(f"DEBUG: No user found with email: {email}")
         return jsonify({"error": "Invalid email or password"}), 401
     
-    print(f"DEBUG: User found: {user.email}, checking password...")
+    print(f"DEBUG: User found: ID={user.id}, Email={user.email}")
+    print(f"DEBUG: Password hash: {user.password[:50]}...")
     
-    if verify_password(password, user.password):
-        print(f"DEBUG: Password verification successful for user: {email}")
-        login_user(user)
-        return jsonify({
-            "message": "Login successful",
-            "user": {
-                "id": user.id,
-                "email": user.email,
-                "name": user.name
-            }
-        }), 200
-    else:
-        print(f"DEBUG: Password verification failed for user: {email}")
+    # Check if password hash has proper format
+    if not user.password or user.password.count('$') < 2:
+        print(f"DEBUG: Invalid password hash format for user: {email}")
+        return jsonify({"error": "Invalid email or password"}), 401
+    
+    try:
+        if verify_password(password, user.password):
+            print(f"DEBUG: Password verification successful for user: {email}")
+            login_user(user)
+            return jsonify({
+                "message": "Login successful",
+                "user": {
+                    "id": user.id,
+                    "email": user.email,
+                    "name": user.name
+                }
+            }), 200
+        else:
+            print(f"DEBUG: Password verification failed for user: {email}")
+    except Exception as e:
+        print(f"DEBUG: Password verification error: {e}")
+        return jsonify({"error": "Invalid email or password"}), 401
 
     return jsonify({"error": "Invalid email or password"}), 401
 
@@ -111,52 +122,29 @@ def logout():
 @auth_bp.route('/dashboard-stats', methods=['GET'])
 @login_required
 def get_dashboard_stats():
-    import sys
-    import os
-    sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
-    from database import User, Project, Task
-    from sqlalchemy import create_engine
-    from sqlalchemy.orm import sessionmaker
-    from datetime import datetime, date
-    
-    # Create connection to the main app database
-    engine = create_engine('sqlite:///taskmanager.db')
-    DBSession = sessionmaker(bind=engine)
-    db_session = DBSession()
-    
     try:
-        # Find the user in the app database by email (since emails should match)
-        user = db_session.query(User).filter_by(email=current_user.email).first()
+        # Total Projects created by the current user
+        total_projects = Projects.query.filter_by(created_by=current_user.id).count()
         
-        if not user:
-            return jsonify({
-                "total_projects": 0,
-                "active_tasks": 0,
-                "team_members": 0,
-                "overdue_tasks": 0
-            }), 200
+        # Active Tasks assigned to the current user
+        active_tasks = Tasks.query.filter_by(assigned_to=current_user.id).count()
         
-        # Total Projects (owned + collaborated)
-        owned_projects = db_session.query(Project).filter_by(owner_id=user.id).count()
-        collaborated_projects = len(user.collaborations)
-        total_projects = owned_projects + collaborated_projects
-        
-        # Active Tasks (assigned to user)
-        active_tasks = db_session.query(Task).filter_by(assignee_id=user.id).count()
-        
-        # Team Members (unique collaborators across all owned projects)
+        # Team Members (count unique team members across user's projects)
+        from models import TeamMembers
+        user_projects = Projects.query.filter_by(created_by=current_user.id).all()
         team_members = set()
-        for project in user.projects:
-            for collaborator in project.collaborators:
-                team_members.add(collaborator.id)
+        for project in user_projects:
+            project_members = TeamMembers.query.filter_by(project_id=project.id).all()
+            for member in project_members:
+                team_members.add(member.user_id)
         team_members_count = len(team_members)
         
-        # Overdue Tasks (assigned to user, past deadline)
+        # Overdue Tasks assigned to current user
         today = date.today()
-        overdue_tasks = db_session.query(Task).filter(
-            Task.assignee_id == user.id,
-            Task.deadline < today
-        ).count()
+        overdue_tasks = Tasks.query.filter(
+            Tasks.assigned_to == current_user.id,
+            Tasks.due_date < today
+        ).count() if Tasks.query.filter_by(assigned_to=current_user.id).first() else 0
         
         return jsonify({
             "total_projects": total_projects,
@@ -173,48 +161,28 @@ def get_dashboard_stats():
             "team_members": 0,
             "overdue_tasks": 0
         }), 200
-    finally:
-        db_session.close()
 
 # ---------- RECENT PROJECTS ----------
 @auth_bp.route('/recent-projects', methods=['GET'])
 @login_required
 def get_recent_projects():
-    import sys
-    import os
-    sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
-    from database import User, Project
-    from sqlalchemy import create_engine
-    from sqlalchemy.orm import sessionmaker
-    
-    # Create connection to the main app database
-    engine = create_engine('sqlite:///taskmanager.db')
-    DBSession = sessionmaker(bind=engine)
-    db_session = DBSession()
-    
     try:
-        # Find the user in the app database by email
-        user = db_session.query(User).filter_by(email=current_user.email).first()
-        
-        if not user:
-            return jsonify([]), 200
-        
-        # Get user's projects (owned + collaborated), limit to 5 most recent
-        owned_projects = db_session.query(Project).filter_by(owner_id=user.id).all()
-        all_projects = owned_projects + list(user.collaborations)
-        
-        # Sort by creation date and limit to 5
-        recent_projects = sorted(all_projects, key=lambda x: x.id, reverse=True)[:5]
+        # Get recent projects created by current user
+        recent_projects = Projects.query.filter_by(created_by=current_user.id)\
+                                       .order_by(Projects.created_at.desc())\
+                                       .limit(5).all()
         
         projects_data = []
         for project in recent_projects:
+            # Count tasks for this project
+            task_count = Tasks.query.filter_by(project_id=project.id).count()
+            
             projects_data.append({
                 "id": project.id,
                 "name": project.name,
-                "description": project.description or "",
-                "priority": project.priority.value if project.priority else "MEDIUM",
-                "created_at": datetime.now().isoformat(),
-                "image": project.image
+                "description": project.description,
+                "created_at": project.created_at.isoformat() if project.created_at else None,
+                "task_count": task_count
             })
         
         return jsonify(projects_data), 200
@@ -222,6 +190,4 @@ def get_recent_projects():
     except Exception as e:
         print(f"Error fetching recent projects: {e}")
         return jsonify([]), 200
-    finally:
-        db_session.close()
 

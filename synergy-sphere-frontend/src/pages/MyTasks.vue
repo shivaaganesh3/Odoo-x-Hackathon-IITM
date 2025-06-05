@@ -6,10 +6,14 @@
     <div class="filter">
       <label for="status">Status:</label>
       <select id="status" v-model="statusFilter">
-        <option value="">All</option>
-        <option value="To-Do">To-Do</option>
-        <option value="In Progress">In Progress</option>
-        <option value="Done">Done</option>
+        <option value="">All Statuses</option>
+        <option 
+          v-for="status in availableStatuses" 
+          :key="status.id" 
+          :value="status.id"
+        >
+          {{ status.name }}
+        </option>
       </select>
 
       <label for="due">Due Date:</label>
@@ -24,25 +28,40 @@
         <tr>
           <th>Title</th>
           <th>Status</th>
+          <th>Priority</th>
           <th>Due Date</th>
-          <th>Project ID</th>
+          <th>Project</th>
         </tr>
       </thead>
       <tbody>
         <tr v-for="task in tasks" :key="task.id">
-          <td>{{ task.title }}</td>
           <td>
-            <span :class="getStatusClass(task.status)">
-              {{ task.status }}
+            <strong>{{ task.title }}</strong>
+            <br>
+            <small class="task-description">{{ task.description }}</small>
+          </td>
+          <td>
+            <span 
+              class="badge" 
+              :style="{ backgroundColor: task.status?.color || '#6B7280' }"
+            >
+              {{ task.status?.name || 'No Status' }}
+            </span>
+          </td>
+          <td>
+            <span :class="getPriorityClass(task.priority)">
+              {{ task.priority || 'Medium' }}
             </span>
           </td>
           <td>{{ formatDate(task.due_date) }}</td>
-          <td>{{ task.project_id }}</td>
+          <td>
+            <span class="project-name">{{ task.project_name }}</span>
+          </td>
         </tr>
       </tbody>
     </table>
 
-    <p v-else>No tasks found for this filter.</p>
+    <p v-else class="no-tasks">No tasks found for the selected filters.</p>
   </div>
 </template>
 
@@ -52,9 +71,31 @@ import axios from '../axios'
 import { useRouter } from 'vue-router'
 
 const tasks = ref([])
+const availableStatuses = ref([])
 const statusFilter = ref('')
 const dueDateFilter = ref('')
 const router = useRouter()
+
+// Fetch all unique statuses from user's tasks
+const fetchAvailableStatuses = async () => {
+  try {
+    // Get all tasks first to extract unique statuses
+    const res = await axios.get('/tasks/my')
+    const allTasks = res.data
+    
+    // Extract unique statuses
+    const statusMap = new Map()
+    allTasks.forEach(task => {
+      if (task.status && task.status.id) {
+        statusMap.set(task.status.id, task.status)
+      }
+    })
+    
+    availableStatuses.value = Array.from(statusMap.values())
+  } catch (err) {
+    console.error('Error fetching available statuses:', err)
+  }
+}
 
 const fetchTasks = async () => {
   try {
@@ -62,7 +103,7 @@ const fetchTasks = async () => {
     const params = new URLSearchParams()
 
     if (statusFilter.value) {
-      params.append('status', statusFilter.value)
+      params.append('status_id', statusFilter.value)
     }
     if (dueDateFilter.value) {
       params.append('due_date', dueDateFilter.value)
@@ -82,23 +123,28 @@ const fetchTasks = async () => {
   }
 }
 
-onMounted(fetchTasks)
+onMounted(async () => {
+  await fetchAvailableStatuses()
+  await fetchTasks()
+})
 
 const formatDate = (date) => {
-  if (!date) return '-'
+  if (!date) return 'No due date'
   return new Date(date).toLocaleDateString()
 }
 
-const getStatusClass = (status) => {
-  switch (status) {
-    case 'To-Do':
-      return 'badge todo'
-    case 'In Progress':
-      return 'badge progress'
-    case 'Done':
-      return 'badge done'
+const getPriorityClass = (priority) => {
+  switch (priority) {
+    case 'Urgent':
+      return 'priority urgent'
+    case 'High':
+      return 'priority high'
+    case 'Medium':
+      return 'priority medium'
+    case 'Low':
+      return 'priority low'
     default:
-      return 'badge'
+      return 'priority medium'
   }
 }
 </script>
@@ -107,50 +153,167 @@ const getStatusClass = (status) => {
 .tasks {
   padding: 2rem;
   font-family: Arial, sans-serif;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
 .filter {
   display: flex;
   align-items: center;
   gap: 1rem;
-  margin-bottom: 1rem;
+  margin-bottom: 2rem;
+  padding: 1rem;
+  background: #f9fafb;
+  border-radius: 8px;
+  flex-wrap: wrap;
+}
+
+.filter label {
+  font-weight: 500;
+  color: #374151;
+}
+
+.filter select,
+.filter input {
+  padding: 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 0.875rem;
+}
+
+.filter button {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.filter button:hover {
+  background: #2563eb;
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
   margin-top: 1rem;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 th, td {
-  padding: 0.75rem;
-  border: 1px solid #ccc;
+  padding: 1rem;
+  border-bottom: 1px solid #e5e7eb;
   text-align: left;
+  vertical-align: top;
 }
 
 th {
-  background-color: #f0f0f0;
+  background-color: #f9fafb;
+  font-weight: 600;
+  color: #374151;
+}
+
+.task-description {
+  color: #6b7280;
+  font-style: italic;
 }
 
 .badge {
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 0.8rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
   font-weight: bold;
   color: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  display: inline-block;
 }
 
-.todo {
-  background-color: #facc15; /* yellow */
-  color: #000;
+.priority {
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
 }
 
-.progress {
-  background-color: #3b82f6; /* blue */
+.priority.urgent {
+  background: #fee2e2;
+  color: #dc2626;
 }
 
-.done {
-  background-color: #22c55e; /* green */
+.priority.high {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.priority.medium {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.priority.low {
+  background: #d1fae5;
+  color: #059669;
+}
+
+.project-name {
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+.no-tasks {
+  text-align: center;
+  color: #6b7280;
+  font-style: italic;
+  padding: 3rem;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+@media (max-width: 768px) {
+  .filter {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  table, thead, tbody, th, td, tr {
+    display: block;
+  }
+  
+  thead tr {
+    position: absolute;
+    top: -9999px;
+    left: -9999px;
+  }
+  
+  tr {
+    border: 1px solid #e5e7eb;
+    margin-bottom: 0.5rem;
+    border-radius: 8px;
+    padding: 0.5rem;
+  }
+  
+  td {
+    border: none;
+    border-bottom: 1px solid #e5e7eb;
+    position: relative;
+    padding-left: 30%;
+  }
+  
+  td:before {
+    content: attr(data-label);
+    position: absolute;
+    left: 6px;
+    width: 25%;
+    padding-right: 10px;
+    white-space: nowrap;
+    font-weight: bold;
+  }
 }
 </style>
