@@ -1,26 +1,92 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import Login from '../pages/Login.vue'
-import Register from '../pages/Register.vue'
-import Dashboard from '../pages/Dashboard.vue'
-import MyTasks from '../pages/MyTasks.vue'
-import Projects from '../pages/Projects.vue'
+import LoginPage from '../pages/LoginPage.vue'
+import SignupPage from '../pages/SignupPage.vue'
+import DashboardPage from '../pages/DashboardPage.vue'
+import ProjectsPage from '../pages/ProjectsPage.vue'
+import ProjectDetailPage from '../pages/ProjectDetailPage.vue'
+import CreateProjectPage from '../pages/CreateProjectPage.vue'
+import TeamPage from '../pages/TeamPage.vue'
+import CalendarPage from '../pages/CalendarPage.vue'
+import SettingsPage from '../pages/SettingsPage.vue'
 
 const routes = [
-  { path: '/', redirect: '/dashboard' },
-  { path: '/login', component: Login },
-  { path: '/register', component: Register },
-  { path: '/dashboard', component: Dashboard },
-  { path: '/my-tasks', component: MyTasks },
-  { path: '/projects', component: Projects },
-  {
-    path: '/project/:id/tasks',
-    component: () => import('../pages/ProjectTasks.vue') // ✅ lazy loaded
+  { 
+    path: '/', 
+    redirect: '/dashboard',
+    meta: { requiresAuth: true }
+  },
+  { 
+    path: '/login', 
+    name: 'Login',
+    component: LoginPage,
+    meta: { guest: true }
+  },
+  { 
+    path: '/signup', 
+    name: 'Signup',
+    component: SignupPage,
+    meta: { guest: true }
+  },
+  { 
+    path: '/dashboard', 
+    name: 'Dashboard',
+    component: DashboardPage,
+    meta: { requiresAuth: true }
+  },
+  { 
+    path: '/projects', 
+    name: 'Projects',
+    component: ProjectsPage,
+    meta: { requiresAuth: true }
+  },
+  { 
+    path: '/projects/create', 
+    name: 'CreateProject',
+    component: CreateProjectPage,
+    meta: { requiresAuth: true }
+  },
+  { 
+    path: '/projects/:id', 
+    name: 'ProjectDetail',
+    component: ProjectDetailPage,
+    meta: { requiresAuth: true }
+  },
+  { 
+    path: '/team', 
+    name: 'Team',
+    component: TeamPage,
+    meta: { requiresAuth: true }
+  },
+  { 
+    path: '/calendar', 
+    name: 'Calendar',
+    component: CalendarPage,
+    meta: { requiresAuth: true }
+  },
+  { 
+    path: '/settings', 
+    name: 'Settings',
+    component: SettingsPage,
+    meta: { requiresAuth: true }
   }
 ]
 
 const router = createRouter({
   history: createWebHistory(),
   routes
+})
+
+// Navigation guards
+router.beforeEach((to, from, next) => {
+  const isAuthenticated = localStorage.getItem('user') // Check for stored user data
+  
+  if (to.meta.requiresAuth && !isAuthenticated) {
+    next('/login')
+  } else if (to.meta.guest && isAuthenticated) {
+    next('/dashboard')
+  } else {
+    next()
+  }
 })
 
 export default router

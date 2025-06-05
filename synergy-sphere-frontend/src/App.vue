@@ -1,14 +1,15 @@
 <template>
-  <router-view />
+  <div id="app" class="min-h-screen bg-gray-50">
+    <router-view />
+  </div>
 </template>
 
-<script setup>
+<script>
+export default {
+  name: 'App'
+}
 </script>
 
 <style>
-body {
-  font-family: Arial, sans-serif;
-  margin: 0;
-  padding: 0;
-}
+@import './style.css';
 </style>

@@ -1,4 +1,5 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, session
+from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
+from flask_cors import CORS
 from database import User, Base, Project, Tag, Task, PriorityEnum
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -9,6 +10,9 @@ from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-here'  # Change this to a secure secret key
+
+# Enable CORS for all routes
+CORS(app, supports_credentials=True)
 
 # Database setup
 engine = create_engine('sqlite:///taskmanager.db')
@@ -82,11 +86,19 @@ def create_project():
         return redirect(url_for('login'))
     
     if request.method == 'POST':
+        print("=== CREATE PROJECT DEBUG ===")
+        print(f"Form data: {dict(request.form)}")
+        print(f"Files: {dict(request.files)}")
+        
         name = request.form['name']
         description = request.form['description']
         deadline = datetime.strptime(request.form['deadline'], '%Y-%m-%d') if request.form['deadline'] else None
         priority = request.form['priority']
         tags = [tag.strip() for tag in request.form['tags'].split(',') if tag.strip()]
+        
+        print(f"Processed tags: {tags}")
+        print(f"Priority: {priority}")
+        print(f"Project name: {name}")
         
         project = Project(
             name=name,
@@ -119,7 +131,8 @@ def create_project():
             return redirect(url_for('dashboard'))
         except Exception as e:
             db_session.rollback()
-            flash('An error occurred while creating the project.', 'error')
+            flash(f'An error occurred while creating the project: {str(e)}', 'error')
+            print(f"ERROR CREATING PROJECT: {str(e)}")  # Debug output
     
     return render_template('create_project.html')
 
@@ -340,6 +353,227 @@ def new_task():
         flash('An error occurred while creating the task.', 'error')
 
     return redirect(url_for('dashboard'))
+
+# API Routes for Vue Frontend
+@app.route('/api/auth/register', methods=['POST'])
+def api_register():
+    data = request.get_json()
+    name = data.get('name')
+    email = data.get('email')
+    password = data.get('password')
+    
+    print(f"=== REGISTRATION ATTEMPT ===")
+    print(f"Name: {name}")
+    print(f"Email: {email}")
+    
+    # Validate required fields
+    if not name or not email or not password:
+        return {'error': 'All fields are required'}, 400
+    
+    # Check if user already exists
+    existing_user = db_session.query(User).filter_by(email=email).first()
+    if existing_user:
+        print(f"User already exists with email: {email}")
+        return {'error': 'Email already registered'}, 400
+    
+    try:
+        new_user = User(
+            name=name,
+            email=email,
+            password_hash=generate_password_hash(password)
+        )
+        
+        db_session.add(new_user)
+        db_session.commit()
+        
+        print(f"User created successfully: {name} ({email})")
+        return {
+            'message': 'Registration successful',
+            'user': {
+                'id': new_user.id,
+                'name': new_user.name,
+                'email': new_user.email
+            }
+        }, 201
+        
+    except Exception as e:
+        db_session.rollback()
+        print(f"Registration failed: {str(e)}")
+        return {'error': f'Registration failed: {str(e)}'}, 500
+
+@app.route('/api/auth/login', methods=['POST'])
+def api_login():
+    data = request.get_json()
+    email = data.get('email')
+    password = data.get('password')
+    
+    print(f"=== LOGIN ATTEMPT ===")
+    print(f"Email: {email}")
+    print(f"Password: {'*' * len(password) if password else 'None'}")
+    
+    user = db_session.query(User).filter_by(email=email).first()
+    print(f"User found: {user is not None}")
+    
+    if user:
+        print(f"User ID: {user.id}, Name: {user.name}")
+        password_valid = check_password_hash(user.password_hash, password)
+        print(f"Password valid: {password_valid}")
+        
+        if password_valid:
+            session['user_id'] = user.id
+            session['user_name'] = user.name
+            print(f"Login successful for user: {user.name}")
+            return {
+                'message': 'Login successful',
+                'user': {
+                    'id': user.id,
+                    'name': user.name,
+                    'email': user.email
+                }
+            }, 200
+    
+    print("Login failed: Invalid email or password")
+    return {'error': 'Invalid email or password'}, 401
+
+@app.route('/api/auth/logout', methods=['POST'])
+def api_logout():
+    session.clear()
+    return {'message': 'Logged out successfully'}, 200
+@app.route('/api/projects', methods=['POST'])
+def api_create_project():
+    if 'user_id' not in session:
+        return {'error': 'Unauthorized'}, 401
+    
+    data = request.get_json()
+    print("=== API CREATE PROJECT DEBUG ===")
+    print(f"JSON data: {data}")
+    
+    try:
+        name = data.get('name')
+        description = data.get('description', '')
+        priority = data.get('priority', 'MEDIUM').lower()
+        deadline = None
+        if data.get('deadline'):
+            deadline = datetime.strptime(data['deadline'], '%Y-%m-%d')
+        
+        # Handle tags from frontend - could be string or list
+        tags_input = data.get('tags', '')
+        if isinstance(tags_input, list):
+            tags = tags_input
+        else:
+            tags = [tag.strip() for tag in tags_input.split(',') if tag.strip()]
+        
+        print(f"Processed data - name: {name}, priority: {priority}, tags: {tags}")
+        
+        project = Project(
+            name=name,
+            description=description,
+            deadline=deadline,
+            priority=PriorityEnum[priority],
+            owner_id=session['user_id']
+        )
+        
+        # Handle tags
+        for tag_name in tags:
+            tag = db_session.query(Tag).filter_by(name=tag_name).first()
+            if not tag:
+                tag = Tag(name=tag_name)
+                db_session.add(tag)
+            project.tags.append(tag)
+        
+        db_session.add(project)
+        db_session.commit()
+        
+        return {'message': 'Project created successfully', 'id': project.id}, 201
+        
+    except Exception as e:
+        db_session.rollback()
+        print(f"ERROR CREATING PROJECT: {str(e)}")
+        return {'error': f'Failed to create project: {str(e)}'}, 500
+
+@app.route('/api/projects', methods=['GET'])
+def api_get_projects():
+    if 'user_id' not in session:
+        return {'error': 'Unauthorized'}, 401
+    
+    try:
+        user = db_session.query(User).get(session['user_id'])
+        projects = user.projects + user.collaborations
+        
+        project_list = []
+        for project in projects:
+            project_data = {
+                'id': project.id,
+                'name': project.name,
+                'description': project.description,
+                'priority': project.priority.value if project.priority else 'Medium',
+                'deadline': project.deadline.strftime('%Y-%m-%d') if project.deadline else None,
+                'image': project.image,
+                'tags': [tag.name for tag in project.tags],
+                'owner_id': project.owner_id,
+                'created_at': project.id  # Placeholder, add created_at field to model if needed
+            }
+            project_list.append(project_data)
+        
+        return project_list, 200
+        
+    except Exception as e:
+        print(f"ERROR FETCHING PROJECTS: {str(e)}")
+        return {'error': f'Failed to fetch projects: {str(e)}'}, 500
+
+@app.route('/api/auth/dashboard-stats', methods=['GET'])
+def api_dashboard_stats():
+    if 'user_id' not in session:
+        return {'error': 'Unauthorized'}, 401
+    
+    try:
+        user = db_session.query(User).get(session['user_id'])
+        projects = user.projects + user.collaborations
+        
+        total_projects = len(projects)
+        total_tasks = sum(len(project.tasks) for project in projects)
+        active_tasks = total_tasks  # Simplified - all tasks are active
+        overdue_tasks = 0  # Simplified
+        team_members = len(set([project.owner_id for project in projects] + 
+                              [collab.id for project in projects for collab in project.collaborators]))
+        
+        return {
+            'total_projects': total_projects,
+            'active_tasks': active_tasks,
+            'team_members': team_members,
+            'overdue_tasks': overdue_tasks
+        }, 200
+        
+    except Exception as e:
+        print(f"ERROR FETCHING DASHBOARD STATS: {str(e)}")
+        return {'error': f'Failed to fetch stats: {str(e)}'}, 500
+
+@app.route('/api/auth/recent-projects', methods=['GET'])
+def api_recent_projects():
+    if 'user_id' not in session:
+        return {'error': 'Unauthorized'}, 401
+    
+    try:
+        user = db_session.query(User).get(session['user_id'])
+        projects = (user.projects + user.collaborations)[:5]  # Get first 5 projects
+        
+        project_list = []
+        for project in projects:
+            project_data = {
+                'id': project.id,
+                'name': project.name,
+                'description': project.description,
+                'priority': project.priority.value if project.priority else 'Medium',
+                'image': project.image,
+                'created_at': f"2024-{project.id:02d}-01"  # Placeholder date
+            }
+            project_list.append(project_data)
+        
+        return project_list, 200
+        
+    except Exception as e:
+        print(f"ERROR FETCHING RECENT PROJECTS: {str(e)}")
+        return {'error': f'Failed to fetch recent projects: {str(e)}'}, 500
 
 @app.route('/logout')
 def logout():
