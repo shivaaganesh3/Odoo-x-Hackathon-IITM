@@ -31,6 +31,7 @@
           <th>Priority</th>
           <th>Due Date</th>
           <th>Project</th>
+          <th>Deadline Warning</th>
         </tr>
       </thead>
       <tbody>
@@ -57,6 +58,13 @@
           <td>
             <span class="project-name">{{ task.project_name }}</span>
           </td>
+          <td>
+            <TaskDeadlineWarning 
+              v-if="task.due_date" 
+              :task-id="task.id" 
+              class="task-deadline-warning"
+            />
+          </td>
         </tr>
       </tbody>
     </table>
@@ -69,6 +77,7 @@
 import { ref, onMounted } from 'vue'
 import axios from '../axios'
 import { useRouter } from 'vue-router'
+import TaskDeadlineWarning from '../components/TaskDeadlineWarning.vue'
 
 const tasks = ref([])
 const availableStatuses = ref([])

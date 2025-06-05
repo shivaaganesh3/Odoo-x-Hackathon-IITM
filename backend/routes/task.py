@@ -4,8 +4,14 @@ from database import db
 from models import Tasks, Projects, CustomStatus, TeamMembers, Users
 from datetime import datetime, timedelta
 from task_prioritization import TaskPrioritizationEngine
+from deadline_warnings import DeadlineWarningEngine
+from llm_task_parser import get_task_parser
+import logging
 
 task_bp = Blueprint('task', __name__)
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 def calculate_priority(due_date):
     if not due_date:
@@ -139,6 +145,153 @@ def create_task():
         "priority": task.priority,
         "priority_score": task.priority_score
     }), 201
+
+# ---------- NATURAL LANGUAGE TASK PARSING ----------
+@task_bp.route("/parse-nl-task", methods=["POST"])
+@login_required
+def parse_natural_language_task():
+    """
+    Parse natural language task input using Gemini + LangChain
+    
+    Expected input:
+    {
+        "text": "Remind John to finalize the pitch deck by Friday",
+        "project_id": 2
+    }
+    
+    Returns:
+    {
+        "title": "Finalize the pitch deck",
+        "assigned_to": 5,  # User ID
+        "due_date": "2024-01-26",
+        "status_id": 1,  # Default status ID
+        "project_id": 2,
+        "priority": "Medium",
+        "effort_score": 3,
+        "impact_score": 3,
+        "parsing_info": {
+            "confidence": "high",
+            "assignee_name": "John",
+            "extracted_info": {...}
+        }
+    }
+    """
+    try:
+        data = request.get_json()
+        text = data.get("text")
+        project_id = data.get("project_id")
+        
+        if not text:
+            return jsonify({"error": "Text input required"}), 400
+        
+        if not project_id:
+            return jsonify({"error": "Project ID required"}), 400
+        
+        logger.info(f"Parsing natural language task: '{text}' for project {project_id}")
+        
+        # Validate user is a team member of the project
+        team_membership = TeamMembers.query.filter_by(
+            project_id=project_id, 
+            user_id=current_user.id
+        ).first()
+        if not team_membership:
+            return jsonify({"error": "Project not found or user not authorized"}), 403
+
+        # Validate project exists
+        project = Projects.query.get(project_id)
+        if not project:
+            return jsonify({"error": "Project not found"}), 404
+
+        # Get the task parser instance
+        parser = get_task_parser()
+        
+        # Parse the natural language input
+        parsed_result = parser.parse_natural_language_task(text, project_id)
+        
+        logger.info(f"Parsed result: {parsed_result}")
+        
+        # Get default status for the project
+        default_status = CustomStatus.query.filter_by(
+            project_id=project_id, 
+            is_default=True
+        ).first()
+        
+        if not default_status:
+            # If no default status exists, get the first status for the project
+            default_status = CustomStatus.query.filter_by(project_id=project_id).first()
+            
+        if not default_status:
+            return jsonify({
+                "error": "No status found for project. Please create custom statuses first."
+            }), 400
+        
+        # Prepare structured task data for response
+        task_data = {
+            "title": parsed_result.get("title", "").strip(),
+            "description": parsed_result.get("description"),
+            "assigned_to": parsed_result.get("assigned_to"),
+            "due_date": parsed_result.get("due_date"),
+            "status_id": default_status.id,
+            "project_id": project_id,
+            "priority": parsed_result.get("priority", "Medium"),
+            "effort_score": parsed_result.get("effort_score", 3),
+            "impact_score": parsed_result.get("impact_score", 3)
+        }
+        
+        # Additional parsing information for debugging/transparency
+        parsing_info = {
+            "confidence": parsed_result.get("extracted_info", {}).get("confidence", "unknown"),
+            "assignee_name": parsed_result.get("assignee_name"),
+            "date_context": parsed_result.get("extracted_info", {}).get("date_context"),
+            "assignee_context": parsed_result.get("extracted_info", {}).get("assignee_context"),
+            "original_text": text,
+            "extracted_info": parsed_result.get("extracted_info", {})
+        }
+        
+        # Include assignee information if found
+        if task_data["assigned_to"]:
+            assignee = Users.query.get(task_data["assigned_to"])
+            if assignee:
+                parsing_info["resolved_assignee"] = {
+                    "id": assignee.id,
+                    "name": assignee.name,
+                    "email": assignee.email
+                }
+        
+        # Warnings for missing or uncertain information
+        warnings = []
+        if not task_data["title"]:
+            warnings.append("Could not extract clear task title")
+        if parsed_result.get("assignee_name") and not task_data["assigned_to"]:
+            warnings.append(f"Could not find team member '{parsed_result.get('assignee_name')}' in project")
+        if parsing_info["confidence"] == "low":
+            warnings.append("Low confidence in parsing results - please review")
+            
+        response = {
+            **task_data,
+            "parsing_info": parsing_info,
+            "default_status": {
+                "id": default_status.id,
+                "name": default_status.name,
+                "color": default_status.color
+            }
+        }
+        
+        if warnings:
+            response["warnings"] = warnings
+        
+        logger.info(f"Returning parsed task data: {response}")
+        return jsonify(response), 200
+        
+    except ValueError as ve:
+        logger.error(f"Validation error: {ve}")
+        return jsonify({"error": str(ve)}), 400
+    except Exception as e:
+        logger.error(f"Error parsing natural language task: {e}")
+        return jsonify({
+            "error": "Failed to parse natural language task",
+            "details": str(e)
+        }), 500
 
 # ---------- GET TASKS BY PROJECT ----------
 @task_bp.route("/project/<int:project_id>", methods=["GET"])
@@ -348,11 +501,33 @@ def update_task(task_id):
     task.updated_at = datetime.utcnow()
     db.session.commit()
     
-    return jsonify({
+    # Check for deadline risk and create notification if needed
+    deadline_warning = None
+    if task.due_date:
+        try:
+            risk_score, risk_level = DeadlineWarningEngine.calculate_deadline_risk(task)
+            if risk_level in ['medium', 'high', 'critical']:
+                notifications = DeadlineWarningEngine.create_deadline_notification(task, risk_score, risk_level)
+                if notifications:
+                    db.session.commit()  # Commit notifications
+                    deadline_warning = {
+                        "risk_level": risk_level,
+                        "risk_score": risk_score,
+                        "notifications_created": len(notifications)
+                    }
+        except Exception as e:
+            print(f"Warning: Failed to create deadline notification: {e}")
+    
+    response = {
         "message": "Task updated",
         "priority": task.priority,
         "priority_score": task.priority_score
-    }), 200
+    }
+    
+    if deadline_warning:
+        response["deadline_warning"] = deadline_warning
+    
+    return jsonify(response), 200
 
 # ---------- DELETE TASK ----------
 @task_bp.route("/<int:task_id>", methods=["DELETE"])

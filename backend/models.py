@@ -127,5 +127,100 @@ class Discussions(db.Model):
     parent_id = db.Column(db.Integer, db.ForeignKey('discussions.id'), nullable=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False)
+    task_id = db.Column(db.Integer, db.ForeignKey('tasks.id'), nullable=True)  # Optional task reference
 
     replies = db.relationship('Discussions', backref=db.backref('parent', remote_side=[id]), lazy=True)
+    task = db.relationship('Tasks', backref='discussions', lazy=True)  # Add relationship to Tasks
+
+
+# ------------------ NOTIFICATIONS ------------------
+class Notifications(db.Model):
+    __tablename__ = 'notifications'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    title = db.Column(db.String(200), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    type = db.Column(db.String(50), nullable=False)  # 'deadline_warning', 'task_overdue', 'general'
+    is_read = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Optional references for context
+    task_id = db.Column(db.Integer, db.ForeignKey('tasks.id'), nullable=True)
+    project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=True)
+    
+    # Priority level for notifications
+    priority = db.Column(db.String(20), default='medium')  # 'low', 'medium', 'high', 'urgent'
+    
+    # For deadline warnings - when to trigger again
+    next_reminder_at = db.Column(db.DateTime, nullable=True)
+    
+    # Relationships
+    user = db.relationship('Users', backref='notifications', lazy=True)
+    task = db.relationship('Tasks', backref='notifications', lazy=True)
+    project = db.relationship('Projects', backref='notifications', lazy=True)
+
+
+# ------------------ BUDGET ------------------
+class Budget(db.Model):
+    __tablename__ = 'budgets'
+
+    id = db.Column(db.Integer, primary_key=True)
+    amount = db.Column(db.Float, nullable=False)
+    start_date = db.Column(db.DateTime, nullable=False)
+    end_date = db.Column(db.DateTime, nullable=False)
+    notes = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=True)
+    task_id = db.Column(db.Integer, db.ForeignKey('tasks.id'), nullable=True)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+
+    # Relationships
+    project = db.relationship('Projects', backref='budgets')
+    task = db.relationship('Tasks', backref='budgets')
+    creator = db.relationship('Users', backref='created_budgets')
+
+    def __repr__(self):
+        return f'<Budget {self.id}: {self.amount}>'
+
+
+# ------------------ EXPENSE CATEGORIES ------------------
+class ExpenseCategory(db.Model):
+    __tablename__ = 'expense_categories'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<ExpenseCategory {self.name}>'
+
+
+# ------------------ EXPENSES ------------------
+class Expense(db.Model):
+    __tablename__ = 'expenses'
+
+    id = db.Column(db.Integer, primary_key=True)
+    amount = db.Column(db.Float, nullable=False)
+    date = db.Column(db.DateTime, nullable=False)
+    notes = db.Column(db.Text)
+    receipt_url = db.Column(db.String(500))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=True)
+    task_id = db.Column(db.Integer, db.ForeignKey('tasks.id'), nullable=True)
+    category_id = db.Column(db.Integer, db.ForeignKey('expense_categories.id'), nullable=False)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+
+    # Relationships
+    project = db.relationship('Projects', backref='expenses')
+    task = db.relationship('Tasks', backref='expenses')
+    category = db.relationship('ExpenseCategory', backref='expenses')
+    creator = db.relationship('Users', backref='created_expenses')
+
+    def __repr__(self):
+        return f'<Expense {self.id}: {self.amount}>'

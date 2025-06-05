@@ -144,6 +144,9 @@
             </div>
           </div>
 
+          <!-- Project Deadline Risk -->
+          <ProjectDeadlineRisk :project-id="project.id" />
+
           <!-- Team avatars and actions -->
           <div class="flex items-center justify-between">
             <div class="flex -space-x-2">
@@ -193,6 +196,7 @@
 <script>
 import { ref, computed, onMounted } from 'vue'
 import AppLayout from '../components/AppLayout.vue'
+import ProjectDeadlineRisk from '../components/ProjectDeadlineRisk.vue'
 import {
   FolderIcon,
   PlusIcon,
@@ -208,6 +212,7 @@ export default {
   name: 'ProjectsPage',
   components: {
     AppLayout,
+    ProjectDeadlineRisk,
     FolderIcon,
     PlusIcon,
     MagnifyingGlassIcon,

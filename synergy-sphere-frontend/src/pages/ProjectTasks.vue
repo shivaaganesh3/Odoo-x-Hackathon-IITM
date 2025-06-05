@@ -30,6 +30,14 @@
       </div>
 
       <div v-else>
+        <!-- 🧠 Natural Language Task Input -->
+        <NaturalTaskInput 
+          :project-id="projectId"
+          :custom-statuses="customStatuses"
+          :on-task-created="handleAiTaskCreated"
+          :on-fill-manual-form="handleFillManualForm"
+        />
+
         <!-- ➕ Add New Task (Enhanced with Smart Prioritization) -->
         <form @submit.prevent="createTask" class="task-form">
           <div class="form-row">
@@ -182,6 +190,20 @@
               👤 Assigned to: {{ task.assignee_name || 'Unassigned' }}
             </div>
             
+            <!-- Add task discussions -->
+            <TaskDiscussions 
+              :task-id="task.id"
+              :project-id="parseInt(projectId)"
+              :current-user-id="currentUser.id"
+            />
+            
+            <!-- Add deadline warning component -->
+            <TaskDeadlineWarning 
+              v-if="task.due_date" 
+              :task-id="task.id" 
+              class="task-deadline-warning"
+            />
+            
             <div v-if="task.dependency_map?.length || task.blocked_by?.length" class="dependency-info">
               <div v-if="task.dependency_map?.length" class="depends-info">
                 🔗 Blocks {{ task.dependency_map.length }} task(s)
@@ -327,11 +349,17 @@
   </template>
   
   <script setup>
-  import { ref, onMounted } from 'vue'
+  import { ref, onMounted, computed } from 'vue'
   import { useRoute } from 'vue-router'
   import axios from '../axios'
+  import TaskDeadlineWarning from '../components/TaskDeadlineWarning.vue'
+  import TaskDiscussions from '../components/TaskDiscussions.vue'
+  import NaturalTaskInput from '../components/NaturalTaskInput.vue'
+  import { useAuthStore } from '../store/auth'
   
   const route = useRoute()
+  const authStore = useAuthStore()
+  const currentUser = computed(() => authStore.user)
   const projectId = route.params.id
   
   const tasks = ref([])
@@ -583,6 +611,30 @@
       5: '💥 Critical'
     }
     return labels[impact] || '🎯 Medium'
+  }
+  
+  const handleAiTaskCreated = () => {
+    // Refresh tasks when AI creates a task
+    fetchTasks()
+  }
+  
+  const handleFillManualForm = (parsedTask) => {
+    // Fill the manual form with AI-parsed data
+    if (parsedTask) {
+      newTask.value.title = parsedTask.title || ''
+      newTask.value.description = parsedTask.description || ''
+      newTask.value.due_date = parsedTask.due_date || ''
+      newTask.value.assigned_to = parsedTask.assigned_to || null
+      newTask.value.effort_score = parsedTask.effort_score || 3
+      newTask.value.impact_score = parsedTask.impact_score || 3
+      newTask.value.status_id = parsedTask.status_id || (customStatuses.value.find(s => s.is_default)?.id || '')
+      
+      // Scroll to manual form
+      const taskForm = document.querySelector('.task-form')
+      if (taskForm) {
+        taskForm.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }
+    }
   }
   
   onMounted(async () => {

@@ -44,6 +44,13 @@
         </div>
       </div>
 
+      <!-- Add budget and expense management -->
+      <div class="project-finances">
+        <FundsUsageTracker :project-id="parseInt(projectId)" />
+        <BudgetManager :project-id="parseInt(projectId)" />
+        <ExpenseManager :project-id="parseInt(projectId)" />
+      </div>
+
       <!-- Tasks Section -->
       <div class="tasks-section card">
         <div class="section-header">
@@ -56,6 +63,15 @@
             ➕ Add Task
           </button>
         </div>
+
+        <!-- 🧠 Natural Language Task Input -->
+        <NaturalTaskInput 
+          v-if="canManageTasks && customStatuses.length > 0"
+          :project-id="parseInt(projectId)"
+          :custom-statuses="customStatuses"
+          :on-task-created="handleAiTaskCreated"
+          :on-fill-manual-form="handleFillManualForm"
+        />
 
         <!-- Status Management Warning -->
         <div v-if="customStatuses.length === 0" class="no-statuses-warning">
@@ -145,6 +161,20 @@
                 👤 Assigned: {{ task.assignee_name || 'Unassigned' }}
               </div>
             </div>
+
+            <!-- Add task discussions -->
+            <TaskDiscussions 
+              :task-id="task.id"
+              :project-id="parseInt(projectId)"
+              :current-user-id="currentUser.id"
+            />
+
+            <!-- Add deadline warning component -->
+            <TaskDeadlineWarning 
+              v-if="task.due_date" 
+              :task-id="task.id" 
+              class="task-deadline-warning"
+            />
           </div>
         </div>
 
@@ -281,11 +311,23 @@ import { useRoute } from 'vue-router'
 import AppLayout from '../components/AppLayout.vue'
 import { useAuthStore } from '../store/auth'
 import axios from '../axios'
+import TaskDeadlineWarning from '../components/TaskDeadlineWarning.vue'
+import TaskDiscussions from '../components/TaskDiscussions.vue'
+import NaturalTaskInput from '../components/NaturalTaskInput.vue'
+import FundsUsageTracker from '../components/FundsUsageTracker.vue'
+import BudgetManager from '../components/BudgetManager.vue'
+import ExpenseManager from '../components/ExpenseManager.vue'
 
 export default {
   name: 'ProjectDetailPage',
   components: {
     AppLayout,
+    TaskDeadlineWarning,
+    TaskDiscussions,
+    NaturalTaskInput,
+    FundsUsageTracker,
+    BudgetManager,
+    ExpenseManager,
   },
   setup() {
     const route = useRoute()
@@ -315,6 +357,8 @@ export default {
         member => member.id === authStore.user?.id
       )
     })
+
+    const currentUser = computed(() => authStore.user)
 
     const formatDate = (dateString) => {
       if (!dateString) return null
@@ -461,6 +505,32 @@ export default {
       editingTask.value = null
     }
 
+    // AI Task Handlers
+    const handleAiTaskCreated = () => {
+      // Refresh tasks list when AI creates a task
+      fetchTasks()
+    }
+
+    const handleFillManualForm = (taskData) => {
+      // Fill the manual task form with AI parsed data
+      newTask.value = {
+        title: taskData.title || '',
+        description: taskData.description || '',
+        due_date: taskData.due_date || '',
+        status_id: taskData.status_id || '',
+        assigned_to: taskData.assigned_to || ''
+      }
+      showAddTaskModal.value = true
+      
+      // Smooth scroll to the modal
+      setTimeout(() => {
+        const modal = document.querySelector('.modal')
+        if (modal) {
+          modal.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }
+      }, 100)
+    }
+
     onMounted(async () => {
       loading.value = true
       try {
@@ -484,6 +554,7 @@ export default {
     })
 
     return {
+      projectId,
       project,
       tasks,
       customStatuses,
@@ -503,7 +574,10 @@ export default {
       updateTask,
       deleteTask,
       closeAddTaskModal,
-      cancelEdit
+      cancelEdit,
+      currentUser,
+      handleAiTaskCreated,
+      handleFillManualForm,
     }
   }
 }

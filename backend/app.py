@@ -10,6 +10,10 @@ from routes.task import task_bp
 from routes.team import team_bp
 from routes.discussion import discussion_bp
 from routes.custom_status import custom_status_bp
+from routes.notifications import notifications_bp
+from routes.analytics import analytics_bp
+from routes.budget import budget_bp
+from routes.expense import expense_bp
 
 def create_app():
     app = Flask(__name__)
@@ -34,6 +38,10 @@ def create_app():
     app.register_blueprint(team_bp, url_prefix='/api/team')
     app.register_blueprint(discussion_bp, url_prefix='/api/discussions')
     app.register_blueprint(custom_status_bp, url_prefix='/api/custom-status')
+    app.register_blueprint(notifications_bp, url_prefix='/api/notifications')
+    app.register_blueprint(analytics_bp, url_prefix='/api/analytics')
+    app.register_blueprint(budget_bp, url_prefix='/api/budget')
+    app.register_blueprint(expense_bp, url_prefix='/api/expenses')
 
     return app
 

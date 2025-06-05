@@ -1,0 +1,17 @@
+{
+  "name": "synergy-sphere",
+  "version": "1.0.0",
+  "description": "Intelligent project management for modern teams",
+  "scripts": {
+    "dev": "cd synergy-sphere-frontend && npm run dev",
+    "build": "cd synergy-sphere-frontend && npm run build",
+    "preview": "cd synergy-sphere-frontend && npm run preview",
+    "install-frontend": "cd synergy-sphere-frontend && npm install",
+    "install-backend": "cd backend && pip install -r requirements.txt",
+    "setup": "npm run install-frontend && npm run install-backend"
+  },
+  "dependencies": {
+    "chart.js": "^4.4.9",
+    "vue-chartjs": "^5.3.2"
+  }
+}
