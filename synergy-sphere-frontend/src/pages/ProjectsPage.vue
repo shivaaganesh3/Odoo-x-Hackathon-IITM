@@ -82,15 +82,21 @@
         @click="$router.push(`/projects/${project.id}`)"
       >
         <!-- Project image -->
-        <div class="aspect-w-16 aspect-h-9 bg-gradient-to-br from-primary-500 to-primary-700">
+        <div class="aspect-w-16 aspect-h-9 bg-gradient-to-br from-primary-500 to-primary-700 relative">
           <img
-            v-if="project.image"
-            :src="project.image"
+            v-if="project.image && !project.imageError"
+            :src="getImageUrl(project.image)"
             :alt="project.name"
             class="w-full h-32 object-cover"
+            @error="handleImageError($event, project)"
+            @load="handleImageLoad(project)"
           />
           <div v-else class="w-full h-32 bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center">
             <FolderIcon class="h-12 w-12 text-white" />
+          </div>
+          <!-- Loading indicator -->
+          <div v-if="project.image && project.imageLoading" class="absolute inset-0 flex items-center justify-center bg-gray-200">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
           </div>
         </div>
 
@@ -242,63 +248,39 @@ export default {
     const fetchProjects = async () => {
       try {
         isLoading.value = true
-        // TODO: Replace with actual API call
-        // Simulate API call
-        setTimeout(() => {
-          projects.value = [
-            {
-              id: 1,
-              name: 'Website Redesign',
-              description: 'Complete redesign of the company website with modern UI/UX principles and responsive design',
-              priority: 'HIGH',
-              status: 'ACTIVE',
-              deadline: '2024-02-15',
-              completed_tasks: 8,
-              total_tasks: 12,
-              team_members: [
-                { id: 1, name: 'John Doe', avatar: null },
-                { id: 2, name: 'Jane Smith', avatar: null },
-                { id: 3, name: 'Mike Johnson', avatar: null }
-              ],
-              is_favorite: true,
-              image: null
-            },
-            {
-              id: 2,
-              name: 'Mobile App Development',
-              description: 'Building our first mobile application for iOS and Android platforms',
-              priority: 'MEDIUM',
-              status: 'ACTIVE',
-              deadline: '2024-03-20',
-              completed_tasks: 3,
-              total_tasks: 15,
-              team_members: [
-                { id: 4, name: 'Sarah Wilson', avatar: null },
-                { id: 5, name: 'Tom Brown', avatar: null }
-              ],
-              is_favorite: false,
-              image: null
-            },
-            {
-              id: 3,
-              name: 'Database Migration',
-              description: 'Migrating from legacy database to modern cloud solution',
-              priority: 'LOW',
-              status: 'COMPLETED',
-              deadline: '2024-01-10',
-              completed_tasks: 5,
-              total_tasks: 5,
-              team_members: [
-                { id: 6, name: 'David Lee', avatar: null }
-              ],
-              is_favorite: false,
-              image: null
-            }
-          ]
-          isLoading.value = false
-        }, 1000)
+        console.log('Fetching projects from API...')
+        
+        const response = await axios.get('/projects')
+        console.log('Projects API response:', response.data)
+        
+        projects.value = response.data.map(project => ({
+          ...project,
+          // Add computed fields that the frontend expects
+          completed_tasks: project.tasks?.filter(task => task.completed)?.length || 0,
+          total_tasks: project.tasks?.length || 0,
+          team_members: project.collaborators || [],
+          is_favorite: false, // TODO: Add favorite functionality
+          status: 'ACTIVE', // TODO: Add status field to backend if needed
+          // Image loading states
+          imageLoading: !!project.image,
+          imageError: false
+        }))
+        
+        console.log('Processed projects:', projects.value)
+        isLoading.value = false
       } catch (error) {
         console.error('Error fetching projects:', error)
+        
+        // Check if user is authenticated
+        if (error.response?.status === 401) {
+          console.log('User not authenticated, redirecting to login...')
+          localStorage.removeItem('user')
+          window.location.href = '/login'
+          return
+        }
+        
+        // Show error message or fallback
+        projects.value = []
         isLoading.value = false
       }
     }
@@ -349,6 +331,42 @@ export default {
       console.log('Loading more projects...')
     }
 
+    const getImageUrl = (imagePath) => {
+      if (!imagePath) return null
+      
+      console.log('Original image path:', imagePath)
+      
+      // If the path starts with /static, prepend the backend URL
+      if (imagePath.startsWith('/static/')) {
+        const fullUrl = `http://localhost:5000${imagePath}`
+        console.log('Generated image URL:', fullUrl)
+        return fullUrl
+      }
+      // If it's already a full URL, return as is
+      if (imagePath.startsWith('http')) {
+        console.log('Using full URL as-is:', imagePath)
+        return imagePath
+      }
+      // Otherwise, assume it's a relative path and prepend backend URL
+      const fullUrl = `http://localhost:5000/static/uploads/${imagePath}`
+      console.log('Generated relative URL:', fullUrl)
+      return fullUrl
+    }
+
+    const handleImageError = (event, project) => {
+      console.error('Failed to load image:', event.target.src)
+      console.error('Image path was:', project.image)
+      // Mark this project's image as having an error
+      project.imageError = true
+      project.imageLoading = false
+    }
+
+    const handleImageLoad = (project) => {
+      console.log('Image loaded successfully for project:', project.name)
+      project.imageLoading = false
+      project.imageError = false
+    }
+
     onMounted(() => {
       fetchProjects()
     })
@@ -367,6 +385,9 @@ export default {
       formatDate,
       toggleFavorite,
       loadMore,
+      getImageUrl,
+      handleImageError,
+      handleImageLoad,
     }
   }
 }

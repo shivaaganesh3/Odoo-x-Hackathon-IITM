@@ -79,6 +79,78 @@
             </p>
           </div>
 
+          <!-- Project Image Upload -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              Project Image
+            </label>
+            
+            <!-- Image Preview -->
+            <div v-if="imagePreview" class="mb-4">
+              <div class="relative inline-block">
+                <img 
+                  :src="imagePreview" 
+                  alt="Project preview" 
+                  class="w-32 h-32 object-cover rounded-lg border border-gray-200 shadow-sm"
+                />
+                <button
+                  @click="removeImage"
+                  type="button"
+                  class="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors duration-200"
+                >
+                  <XMarkIcon class="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            <!-- Upload Area -->
+            <div
+              @drop="handleDrop"
+              @dragover.prevent
+              @dragenter="handleDragEnter"
+              @dragleave="handleDragLeave"
+              :class="[
+                'border-2 border-dashed rounded-lg p-6 text-center transition-colors duration-200',
+                isDragging ? 'border-primary-500 bg-primary-50' : 'border-gray-300 hover:border-gray-400'
+              ]"
+            >
+              <input
+                ref="fileInput"
+                type="file"
+                accept="image/*"
+                @change="handleFileSelect"
+                class="hidden"
+              />
+              
+              <div v-if="!imagePreview">
+                <PhotoIcon class="mx-auto h-12 w-12 text-gray-400" />
+                <div class="mt-2">
+                  <button
+                    @click="$refs.fileInput.click()"
+                    type="button"
+                    class="text-primary-600 hover:text-primary-500 font-medium"
+                  >
+                    Upload an image
+                  </button>
+                  <span class="text-gray-500"> or drag and drop</span>
+                </div>
+                <p class="text-xs text-gray-500 mt-1">
+                  PNG, JPG, GIF up to 10MB
+                </p>
+              </div>
+
+              <div v-else class="text-gray-600">
+                <button
+                  @click="$refs.fileInput.click()"
+                  type="button"
+                  class="text-primary-600 hover:text-primary-500 font-medium"
+                >
+                  Change image
+                </button>
+              </div>
+            </div>
+          </div>
+
           <!-- Error Message -->
           <div v-if="error" class="bg-red-50 border border-red-200 rounded-md p-4">
             <div class="flex">
@@ -135,6 +207,8 @@ import axios from '../axios'
 import {
   ExclamationTriangleIcon,
   CheckCircleIcon,
+  XMarkIcon,
+  PhotoIcon,
 } from '@heroicons/vue/24/outline'
 
 export default {
@@ -143,6 +217,8 @@ export default {
     AppLayout,
     ExclamationTriangleIcon,
     CheckCircleIcon,
+    XMarkIcon,
+    PhotoIcon,
   },
   setup() {
     const router = useRouter()
@@ -158,6 +234,10 @@ export default {
       tags: ''
     })
 
+    const imagePreview = ref(null)
+    const isDragging = ref(false)
+    const fileInput = ref(null)
+
     const handleSubmit = async () => {
       if (!form.value.name.trim()) {
         error.value = 'Project name is required'
@@ -169,33 +249,64 @@ export default {
       success.value = ''
 
       try {
-        const projectData = {
-          name: form.value.name.trim(),
-          description: form.value.description.trim(),
-          priority: form.value.priority,
-          deadline: form.value.deadline || null,
-          tags: form.value.tags.trim()
-        }
+        // Check if we have an image to upload
+        const hasImage = fileInput.value?.files?.[0]
+        
+        if (hasImage) {
+          // Use FormData for file upload
+          const formData = new FormData()
+          formData.append('name', form.value.name.trim())
+          formData.append('description', form.value.description.trim())
+          formData.append('priority', form.value.priority.toLowerCase())
+          formData.append('deadline', form.value.deadline || '')
+          formData.append('tags', form.value.tags.trim())
+          formData.append('image', fileInput.value.files[0])
 
-        const response = await axios.post('/projects', projectData)
+          // Use the API endpoint that supports file uploads
+          const response = await axios.post('/projects', formData, {
+            headers: {
+              'Content-Type': 'multipart/form-data'
+            }
+          })
 
-        if (response.status === 201) {
-          success.value = 'Project created successfully!'
-          
-          // Reset form
-          form.value = {
-            name: '',
-            description: '',
-            priority: 'MEDIUM',
-            deadline: '',
-            tags: ''
+          if (response.status === 201) {
+            success.value = 'Project created successfully with image!'
+          }
+        } else {
+          // Use JSON API for projects without images
+          const projectData = {
+            name: form.value.name.trim(),
+            description: form.value.description.trim(),
+            priority: form.value.priority,
+            deadline: form.value.deadline || null,
+            tags: form.value.tags.trim()
           }
 
-          // Redirect to projects page after a short delay
-          setTimeout(() => {
-            router.push('/projects')
-          }, 1500)
+          const response = await axios.post('/projects', projectData)
+
+          if (response.status === 201) {
+            success.value = 'Project created successfully!'
+          }
         }
+        
+        // Reset form
+        form.value = {
+          name: '',
+          description: '',
+          priority: 'MEDIUM',
+          deadline: '',
+          tags: ''
+        }
+        imagePreview.value = null
+        if (fileInput.value) {
+          fileInput.value.value = ''
+        }
+
+        // Redirect to projects page after a short delay
+        setTimeout(() => {
+          router.push('/projects')
+        }, 1500)
+        
       } catch (err) {
         console.error('Error creating project:', err)
         error.value = err.response?.data?.error || 'Failed to create project. Please try again.'
@@ -204,12 +315,75 @@ export default {
       }
     }
 
+    const handleDrop = (event) => {
+      event.preventDefault()
+      isDragging.value = false
+      const files = event.dataTransfer.files
+      if (files.length > 0) {
+        processFile(files[0])
+      }
+    }
+
+    const handleFileSelect = (event) => {
+      const file = event.target.files?.[0]
+      if (file) {
+        processFile(file)
+      }
+    }
+
+    const processFile = (file) => {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        error.value = 'Please select an image file'
+        return
+      }
+
+      // Validate file size (10MB limit)
+      if (file.size > 10 * 1024 * 1024) {
+        error.value = 'Image size must be less than 10MB'
+        return
+      }
+
+      // Clear any previous errors
+      error.value = ''
+
+      // Create preview
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        imagePreview.value = e.target.result
+      }
+      reader.readAsDataURL(file)
+    }
+
+    const removeImage = () => {
+      imagePreview.value = null
+      if (fileInput.value) {
+        fileInput.value.value = ''
+      }
+    }
+
+    const handleDragEnter = () => {
+      isDragging.value = true
+    }
+
+    const handleDragLeave = () => {
+      isDragging.value = false
+    }
+
     return {
       form,
       isLoading,
       error,
       success,
       handleSubmit,
+      imagePreview,
+      isDragging,
+      fileInput,
+      handleDrop,
+      handleFileSelect,
+      removeImage,
+      handleDragEnter,
+      handleDragLeave,
     }
   }
 }

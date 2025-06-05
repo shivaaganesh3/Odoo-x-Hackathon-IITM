@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, send_from_directory
 from flask_cors import CORS
 from database import User, Base, Project, Tag, Task, PriorityEnum
 from sqlalchemy import create_engine
@@ -12,7 +12,7 @@ app = Flask(__name__)
 app.secret_key = 'your-secret-key-here'  # Change this to a secure secret key
 
 # Enable CORS for all routes
-CORS(app, supports_credentials=True)
+CORS(app, supports_credentials=True, origins=['http://localhost:5173', 'http://127.0.0.1:5173'])
 
 # Database setup
 engine = create_engine('sqlite:///taskmanager.db')
@@ -444,24 +444,44 @@ def api_create_project():
     if 'user_id' not in session:
         return {'error': 'Unauthorized'}, 401
     
-    data = request.get_json()
-    print("=== API CREATE PROJECT DEBUG ===")
-    print(f"JSON data: {data}")
-    
     try:
-        name = data.get('name')
-        description = data.get('description', '')
-        priority = data.get('priority', 'MEDIUM').lower()
-        deadline = None
-        if data.get('deadline'):
-            deadline = datetime.strptime(data['deadline'], '%Y-%m-%d')
-        
-        # Handle tags from frontend - could be string or list
-        tags_input = data.get('tags', '')
-        if isinstance(tags_input, list):
-            tags = tags_input
-        else:
+        # Check if this is a file upload (multipart/form-data) or JSON
+        if request.content_type and 'multipart/form-data' in request.content_type:
+            # Handle file upload
+            print("=== API CREATE PROJECT WITH FILE ===")
+            print(f"Form data: {dict(request.form)}")
+            print(f"Files: {dict(request.files)}")
+            
+            name = request.form.get('name')
+            description = request.form.get('description', '')
+            priority = request.form.get('priority', 'medium').lower()
+            deadline = None
+            if request.form.get('deadline'):
+                deadline = datetime.strptime(request.form['deadline'], '%Y-%m-%d')
+            
+            # Handle tags
+            tags_input = request.form.get('tags', '')
             tags = [tag.strip() for tag in tags_input.split(',') if tag.strip()]
+            
+        else:
+            # Handle JSON data
+            data = request.get_json()
+            print("=== API CREATE PROJECT JSON ===")
+            print(f"JSON data: {data}")
+            
+            name = data.get('name')
+            description = data.get('description', '')
+            priority = data.get('priority', 'MEDIUM').lower()
+            deadline = None
+            if data.get('deadline'):
+                deadline = datetime.strptime(data['deadline'], '%Y-%m-%d')
+            
+            # Handle tags from frontend - could be string or list
+            tags_input = data.get('tags', '')
+            if isinstance(tags_input, list):
+                tags = tags_input
+            else:
+                tags = [tag.strip() for tag in tags_input.split(',') if tag.strip()]
         
         print(f"Processed data - name: {name}, priority: {priority}, tags: {tags}")
         
@@ -472,6 +492,15 @@ def api_create_project():
             priority=PriorityEnum[priority],
             owner_id=session['user_id']
         )
+        
+        # Handle image upload for multipart requests
+        if request.content_type and 'multipart/form-data' in request.content_type:
+            if 'image' in request.files:
+                file = request.files['image']
+                if file.filename != '':
+                    filename = secure_filename(file.filename)
+                    file.save(os.path.join('static', 'uploads', filename))
+                    project.image = f'/static/uploads/{filename}'
         
         # Handle tags
         for tag_name in tags:
@@ -574,6 +603,14 @@ def api_recent_projects():
     except Exception as e:
         print(f"ERROR FETCHING RECENT PROJECTS: {str(e)}")
         return {'error': f'Failed to fetch recent projects: {str(e)}'}, 500
+
+@app.route('/static/uploads/<filename>')
+def uploaded_file(filename):
+    """Serve uploaded files"""
+    try:
+        return send_from_directory(os.path.join(os.getcwd(), 'static', 'uploads'), filename)
+    except FileNotFoundError:
+        return "File not found", 404
 
 @app.route('/logout')
 def logout():
