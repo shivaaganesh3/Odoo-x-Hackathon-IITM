@@ -9,24 +9,28 @@ A comprehensive project management platform with intelligent task prioritization
 - **Dynamic Calculation**: Real-time priority updates based on changing conditions
 - **Dependency Management**: Smart handling of task blocking relationships
 - **Visual Feedback**: Color-coded priority badges and detailed insights
+- **Natural Language Processing**: Smart task parsing and understanding
 
 ### 👥 Team Collaboration
 - **User Management**: Role-based access control with Flask-Security
 - **Team Members**: Project-based team assignment and management
 - **Discussions**: Thread-based discussions for projects and tasks
 - **Notifications**: Real-time notifications with deadline warnings
+- **Custom Statuses**: Project-specific task status workflows
 
 ### 💰 Budget & Expense Tracking
 - **Budget Management**: Project and task-level budget allocation
 - **Expense Tracking**: Categorized expense recording with receipts
 - **Financial Analytics**: Budget vs actual spending analysis
 - **Expense Categories**: Customizable expense categorization
+- **Fund Management**: Track and manage project funds
 
 ### 📊 Advanced Analytics
 - **Project Analytics**: Comprehensive project performance metrics
 - **Task Analytics**: Priority distribution and completion tracking
 - **Calendar View**: Visual timeline of tasks and deadlines
 - **Smart Dashboard**: Overview of priorities, metrics, and insights
+- **Scheduled Reports**: Automated analytics and insights
 
 ### 🎨 Modern UI/UX
 - **Vue.js 3 Frontend**: Responsive and interactive user interface
@@ -35,10 +39,75 @@ A comprehensive project management platform with intelligent task prioritization
 - **Real-time Updates**: Live data synchronization with Pinia state management
 
 ### 🔧 Technical Stack
-- **Backend**: Flask 3.0.3, SQLAlchemy, Flask-Security-Too
-- **Frontend**: Vue.js 3, Tailwind CSS, Vite
+- **Backend**: 
+  - Flask 3.0.3
+  - SQLAlchemy for ORM
+  - Flask-Security-Too for authentication
+  - Celery for background tasks
+  - Natural Language Processing for task parsing
+- **Frontend**: 
+  - Vue.js 3
+  - Tailwind CSS
+  - Vite
+  - Pinia for state management
 - **Database**: SQLite with comprehensive schema design
 - **API**: RESTful endpoints with CORS support
+
+## 🌟 Celery Background Tasks
+
+### Overview
+The system uses Celery for handling background tasks and scheduled jobs, providing reliable asynchronous processing and task scheduling.
+
+### Key Features
+- **Task Scheduling**: Automated task prioritization updates
+- **Deadline Monitoring**: Real-time deadline warnings and notifications
+- **Analytics Generation**: Scheduled report generation
+- **Email Notifications**: Asynchronous email delivery
+- **Task Queue Management**: Distributed task processing
+
+### Configuration
+1. **Prerequisites**
+   ```bash
+   # Install Redis (required for Celery)
+   # Windows: Download from https://github.com/microsoftarchive/redis/releases
+   # Linux:
+   sudo apt-get install redis-server
+   # macOS:
+   brew install redis
+   ```
+
+2. **Celery Setup**
+   ```bash
+   cd backend
+   # Start Redis server (if not running)
+   redis-server
+   
+   # Start Celery worker
+   python start_celery.py
+   ```
+
+### Available Tasks
+- **Priority Updates**: `task_prioritization.update_priorities()`
+- **Deadline Warnings**: `deadline_warnings.check_deadlines()`
+- **Analytics Reports**: `scheduled_jobs.generate_analytics()`
+- **Email Notifications**: `notifications.send_notification()`
+
+### Monitoring Tasks
+```bash
+# View active tasks
+celery -A celery_app inspect active
+
+# View scheduled tasks
+celery -A celery_app inspect scheduled
+
+# View task statistics
+celery -A celery_app inspect stats
+```
+
+### Development
+- Use `test_scheduled_jobs.py` for testing background tasks
+- Configure task schedules in `celery_app.py`
+- Monitor task execution in Celery logs
 
 ## 🚀 Quick Start
 
@@ -46,6 +115,7 @@ A comprehensive project management platform with intelligent task prioritization
 - Python 3.8+
 - Node.js 16+
 - Git
+- Redis (for Celery tasks)
 
 ### Installation
 
@@ -65,35 +135,56 @@ A comprehensive project management platform with intelligent task prioritization
    source venv/bin/activate
    
    pip install -r requirements.txt
-   python app.py
+   python create_all_tables.py  # Initialize database
+   python app.py  # Start Flask server
    ```
 
-3. **Frontend Setup**
+3. **Start Celery Workers** (in a new terminal)
    ```bash
-   cd synergy-sphere-frontend
+   cd backend
+   python start_celery.py
+   ```
+
+4. **Frontend Setup**
+   ```bash
+   cd frontend
    npm install
    npm run dev
    ```
 
-4. **Access the Application**
+5. **Access the Application**
    - Frontend: http://localhost:5173
    - Backend API: http://localhost:5000
 
 ### Development Scripts
 
-**Frontend (synergy-sphere-frontend directory):**
+**Frontend:**
 ```bash
 npm run dev      # Start development server
 npm run build    # Build for production
 npm run preview  # Preview production build
 ```
 
-**Backend (backend directory):**
+**Backend:**
 ```bash
 python app.py                           # Start Flask development server
 python demo_prioritization.py          # Run priority algorithm demo
 python create_all_tables.py           # Initialize database tables
+python start_celery.py                # Start Celery workers
 ```
+
+## 📺 Demo Video
+
+Watch our comprehensive demo video to see Synergy Sphere in action:
+- [Synergy Sphere Demo](https://drive.google.com/file/d/1eajvghUzrsSUsNzheuc7qhWI-Fr8QT_G/view?usp=sharing)
+
+The demo showcases:
+- Smart task prioritization in action
+- Team collaboration features
+- Budget tracking and analytics
+- Real-time notifications
+- Background task processing
+- Natural language task parsing
 
 ## 📊 Priority Scoring Algorithm
 
@@ -111,11 +202,6 @@ The system uses a sophisticated multi-factor scoring algorithm:
 - **6.5-8**: High Priority 🟠
 - **8-10**: Urgent Priority 🔴
 
-### Algorithm Details
-```python
-Priority Score = (Urgency × 0.35) + (Dependencies × 0.25) + (Effort × 0.20) + (Impact × 0.20)
-```
-
 ## 🏗️ Project Structure
 
 ```
@@ -123,8 +209,9 @@ Priority Score = (Urgency × 0.35) + (Dependencies × 0.25) + (Effort × 0.20) +
 │   ├── app.py                       # Main Flask application
 │   ├── models.py                    # SQLAlchemy database models
 │   ├── task_prioritization.py      # Smart priority algorithm
-│   ├── database.py                 # Database configuration
-│   ├── config.py                   # Flask configuration
+│   ├── llm_task_parser.py         # Natural language task parsing
+│   ├── scheduled_jobs.py          # Background tasks
+│   ├── celery_app.py              # Celery configuration
 │   ├── routes/                     # API route blueprints
 │   │   ├── auth.py                 # Authentication routes
 │   │   ├── project.py              # Project management
@@ -134,26 +221,18 @@ Priority Score = (Urgency × 0.35) + (Dependencies × 0.25) + (Effort × 0.20) +
 │   │   ├── notifications.py        # Notification system
 │   │   ├── analytics.py            # Analytics endpoints
 │   │   ├── budget.py               # Budget management
-│   │   ├── expense.py              # Expense tracking
-│   │   └── custom_status.py        # Custom status management
+│   │   └── expense.py              # Expense tracking
 │   ├── migrations/                 # Database migration scripts
 │   └── requirements.txt            # Python dependencies
-├── synergy-sphere-frontend/         # Vue.js application
+├── frontend/                        # Vue.js application
 │   ├── src/
 │   │   ├── pages/                  # Vue page components
-│   │   │   ├── ProjectTasks.vue    # Enhanced task management
-│   │   │   ├── SmartDashboard.vue  # Priority dashboard
-│   │   │   ├── CalendarPage.vue    # Calendar view
-│   │   │   ├── ProjectsPage.vue    # Project overview
-│   │   │   ├── NotificationsPage.vue # Notification center
-│   │   │   └── TeamPage.vue        # Team management
 │   │   ├── components/             # Reusable Vue components
 │   │   ├── router/                 # Vue Router configuration
 │   │   ├── store/                  # Pinia state management
 │   │   └── assets/                 # Static assets
 │   ├── package.json               # Node.js dependencies
 │   └── vite.config.js             # Vite configuration
-├── package.json                    # Root dependencies (Chart.js)
 └── README.md
 ```
 
@@ -177,6 +256,7 @@ Priority Score = (Urgency × 0.35) + (Dependencies × 0.25) + (Effort × 0.20) +
 - `PUT /api/tasks/<id>` - Update task and recalculate priorities
 - `DELETE /api/tasks/<id>` - Delete task
 - `POST /api/tasks/recalculate-priorities` - Bulk priority update
+- `POST /api/tasks/parse` - Parse natural language task description
 
 ### Advanced Features
 - `GET /api/tasks/<id>/insights` - Detailed priority breakdown
@@ -185,103 +265,46 @@ Priority Score = (Urgency × 0.35) + (Dependencies × 0.25) + (Effort × 0.20) +
 - `GET /api/budget/project/<id>` - Budget information
 - `POST /api/expenses` - Record expenses
 
-## 💾 Database Schema
+## 🧪 Testing & Development
 
-### Core Models
-- **Users**: User authentication and profiles with Flask-Security
-- **Projects**: Project containers with team management
-- **Tasks**: Enhanced with priority scoring fields
-- **CustomStatus**: Project-specific task statuses
-- **TeamMembers**: Project team assignments
-- **Discussions**: Threaded conversations
-- **Notifications**: Real-time notification system
-- **Budget**: Financial planning and tracking
-- **Expenses**: Expense recording with categorization
-
-### Enhanced Task Model
-```sql
-CREATE TABLE tasks (
-    id INTEGER PRIMARY KEY,
-    title VARCHAR(150) NOT NULL,
-    description TEXT,
-    priority_score FLOAT DEFAULT 0.0,
-    effort_score INTEGER DEFAULT 3,    -- 1-5 scale
-    impact_score INTEGER DEFAULT 3,    -- 1-5 scale
-    dependency_map JSON DEFAULT '[]',  -- Task IDs this blocks
-    blocked_by JSON DEFAULT '[]',      -- Task IDs blocking this
-    due_date DATE,
-    status_id INTEGER,                 -- References custom_status
-    project_id INTEGER,
-    assigned_to INTEGER,
-    created_at DATETIME,
-    updated_at DATETIME
-);
-```
-
-## 🧪 Testing & Demo
-
-### Demo Script
-Run the comprehensive demo to see the prioritization system:
+### Running Tests
 ```bash
+# Backend tests
 cd backend
-python demo_prioritization.py
+python -m pytest test_*.py
+
+# Frontend tests
+cd frontend
+npm run test
 ```
 
-### Key Features Demonstrated
-- Smart priority calculation across multiple factors
-- Dependency chain handling
-- Real-time score updates
-- Priority insights and breakdowns
+### Key Development Files
+- `backend/test_nl_task_parser.py` - Natural language parsing tests
+- `backend/test_scheduled_jobs.py` - Background task tests
+- `backend/test_registration.py` - Authentication tests
+- `backend/FRONTEND_INTEGRATION_GUIDE.md` - Frontend integration documentation
 
-## 🛠️ Development Setup
+## 🔐 Security Features
 
-### Environment Configuration
-1. **Backend Environment Variables** (create `.env` in backend/):
-   ```
-   SECRET_KEY=your-secret-key-here
-   SECURITY_PASSWORD_SALT=your-salt-here
-   ```
+- **Authentication**: Flask-Security-Too with role-based access
+- **Password Hashing**: Secure password storage
+- **API Security**: CORS and rate limiting
+- **Input Validation**: Comprehensive input sanitization
+- **Session Management**: Secure session handling
 
-2. **Frontend Development**:
-   - Hot reload enabled with Vite
-   - Tailwind CSS with custom configuration
-   - ESLint and Prettier recommended
+## 📈 Monitoring & Maintenance
 
-### Database Initialization
-```bash
-cd backend
-python create_all_tables.py    # Create all tables
-python setup_roles.py          # Initialize user roles
-```
+### Database Management
+- Use `create_all_tables.py` for fresh database setup
+- `migrate_*.py` scripts for schema updates
+- `debug_db.py` for database inspection
 
-## 🚨 Troubleshooting
+### Background Tasks
+- Celery workers for scheduled jobs
+- Task prioritization updates
+- Deadline warnings
+- Analytics generation
 
-### Common Issues
-
-1. **Missing 'dev' script error**:
-   - Run `npm run dev` from `synergy-sphere-frontend/` directory, not root
-   - Root `package.json` only contains Chart.js dependencies
-
-2. **Database Issues**:
-   - Run `python create_all_tables.py` to initialize
-   - Check `taskmanager.db` file permissions
-
-3. **CORS Issues**:
-   - Frontend configured for ports 5173/5174
-   - Backend CORS allows localhost origins
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Follow the coding standards in user rules
-4. Commit your changes (`git commit -m 'Add amazing feature'`)
-5. Push to the branch (`git push origin feature/amazing-feature`)
-6. Open a Pull Request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
