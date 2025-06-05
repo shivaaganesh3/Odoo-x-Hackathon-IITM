@@ -115,6 +115,9 @@ class Tasks(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    # Relationship to discussions/comments
+    discussions = db.relationship('Discussions', backref='task', lazy=True)
+
 
 # ------------------ DISCUSSIONS ------------------
 class Discussions(db.Model):
@@ -127,5 +130,6 @@ class Discussions(db.Model):
     parent_id = db.Column(db.Integer, db.ForeignKey('discussions.id'), nullable=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False)
+    task_id = db.Column(db.Integer, db.ForeignKey('tasks.id'), nullable=True)
 
     replies = db.relationship('Discussions', backref=db.backref('parent', remote_side=[id]), lazy=True)
