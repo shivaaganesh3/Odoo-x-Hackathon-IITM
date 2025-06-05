@@ -18,15 +18,24 @@
   
       <!-- 📝 Task List -->
       <ul v-if="tasks.length" class="task-list">
-        <li v-for="task in tasks" :key="task.id">
-          <strong>{{ task.title }}</strong>
-          <span :class="getStatusClass(task.status)" class="badge">{{ task.status }}</span><br />
-          <small>{{ task.description }}</small><br />
-          📅 Due: {{ formatDate(task.due_date) }} |
-          👤 Assigned to: {{ getUserName(task.assigned_to) }}<br />
+        <li v-for="task in tasks" :key="task.id" class="task-item">
+          <div class="task-header">
+            <strong>{{ task.title }}</strong>
+            <span :class="getStatusClass(task.status)" class="badge">{{ task.status }}</span>
+          </div>
+          <div class="task-body">
+            <small>{{ task.description }}</small><br />
+            �� Due: {{ formatDate(task.due_date) }} |
+            👤 Assigned to: {{ getUserName(task.assigned_to) }}<br />
   
-          <button @click="startEdit(task)">✏️ Edit</button>
-          <button @click="deleteTask(task.id)">🗑️ Delete</button>
+            <div class="task-actions">
+              <button @click="startEdit(task)">✏️ Edit</button>
+              <button @click="deleteTask(task.id)">🗑️ Delete</button>
+            </div>
+          </div>
+          
+          <!-- Comments Section -->
+          <TaskComments :taskId="task.id" />
         </li>
       </ul>
   
@@ -56,6 +65,7 @@
   import { ref, onMounted } from 'vue'
   import { useRoute } from 'vue-router'
   import axios from '../axios'
+  import TaskComments from '../components/TaskComments.vue'
   
   const route = useRoute()
   const projectId = route.params.id
@@ -180,13 +190,28 @@
   .task-list {
     list-style: none;
     padding: 0;
-    max-width: 600px;
+    max-width: 800px;
   }
-  .task-list li {
+  .task-item {
     padding: 1rem;
     background: #f3f4f6;
-    margin-bottom: 0.75rem;
-    border-radius: 4px;
+    margin-bottom: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+  .task-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+  }
+  .task-body {
+    margin-bottom: 1rem;
+  }
+  .task-actions {
+    margin-top: 0.5rem;
+    display: flex;
+    gap: 0.5rem;
   }
   .badge {
     padding: 2px 6px;
@@ -194,7 +219,6 @@
     font-weight: bold;
     border-radius: 3px;
     color: white;
-    margin-left: 0.5rem;
   }
   .todo { background: #facc15; color: black; }
   .progress { background: #3b82f6; }

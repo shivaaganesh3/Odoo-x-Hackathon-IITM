@@ -9,6 +9,7 @@ from routes.project import project_bp
 from routes.task import task_bp
 from routes.team import team_bp
 from routes.discussion import discussion_bp
+from routes.task_comment import task_comment_bp
 
 def create_app():
     app = Flask(__name__)

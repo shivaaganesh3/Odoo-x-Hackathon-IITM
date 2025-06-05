@@ -31,6 +31,7 @@ class Users(db.Model, UserMixin):
     # Relationships
     assigned_tasks = db.relationship('Tasks', backref='assignee', lazy=True)
     discussions = db.relationship('Discussions', backref='author', lazy=True)
+    task_comments = db.relationship('TaskComments', backref='author', lazy=True)
 
 
 # ------------------ USER-ROLE LINK TABLE ------------------
@@ -70,17 +71,20 @@ class TeamMembers(db.Model):
 # ------------------ TASKS ------------------
 class Tasks(db.Model):
     __tablename__ = 'tasks'
+    __table_args__ = {'extend_existing': True}
 
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(150), nullable=False)
     description = db.Column(db.Text)
     status = db.Column(db.String(50), default='To-Do')  # To-Do, In Progress, Done
     due_date = db.Column(db.Date)
-    priority = db.Column(db.String(20), default='Medium')
+    priority = db.Column(db.String(20), default='Medium')  # Low, Medium, High, Urgent
+    priority_score = db.Column(db.Integer, default=0)  # Lower = more urgent
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False)
     assigned_to = db.Column(db.Integer, db.ForeignKey('users.id'))
-    priority = db.Column(db.String(20), default='Medium')  # Low, Medium, High, Urgent
-
+    
+    # Relationships
+    comments = db.relationship('TaskComments', backref='task', lazy=True, cascade='all, delete-orphan')
 
 
 # ------------------ DISCUSSIONS ------------------
@@ -96,18 +100,22 @@ class Discussions(db.Model):
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False)
 
     replies = db.relationship('Discussions', backref=db.backref('parent', remote_side=[id]), lazy=True)
-# ------------------ TASKS ------------------
-class Tasks(db.Model):
-    __tablename__ = 'tasks'
-    __table_args__ = {'extend_existing': True}
+
+
+# ------------------ TASK COMMENTS ------------------
+class TaskComments(db.Model):
+    __tablename__ = 'task_comments'
+    
     id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(150), nullable=False)
-    description = db.Column(db.Text)
-    status = db.Column(db.String(50), default='To-Do')  # To-Do, In Progress, Done
-    due_date = db.Column(db.Date)
-
-    # 🔥 NEW: Smart prioritization score
-    priority_score = db.Column(db.Integer, default=0)  # Lower = more urgent
-
-    project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False)
-    assigned_to = db.Column(db.Integer, db.ForeignKey('users.id'))
+    content = db.Column(db.Text, nullable=False)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Thread support
+    parent_id = db.Column(db.Integer, db.ForeignKey('task_comments.id'), nullable=True)
+    
+    # Foreign keys
+    task_id = db.Column(db.Integer, db.ForeignKey('tasks.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    
+    # Relationships
+    replies = db.relationship('TaskComments', backref=db.backref('parent', remote_side=[id]), lazy=True)
