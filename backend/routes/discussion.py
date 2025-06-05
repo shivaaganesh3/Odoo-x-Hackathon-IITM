@@ -6,6 +6,10 @@ from datetime import datetime
 
 discussion_bp = Blueprint('discussion', __name__)
 
+@discussion_bp.route('/test-discussion')
+def test_discussion():
+    return {"message": "Discussion route working!"}
+
 # ---------- CREATE DISCUSSION ----------
 @discussion_bp.route("/", methods=["POST"])
 @login_required
@@ -168,3 +172,76 @@ def delete_discussion(discussion_id):
     db.session.commit()
 
     return jsonify({"message": "Discussion deleted"}), 200
+
+# ---------- TASK THREAD ENDPOINTS ----------
+@discussion_bp.route('/task/<int:task_id>/thread', methods=['POST'])
+@login_required
+def create_task_thread(task_id):
+    data = request.get_json()
+    message = data.get('message')
+    parent_id = data.get('parent_id')  # Optional, for replies
+    if not message:
+        return jsonify({'error': 'Message is required'}), 400
+
+    task = Tasks.query.get(task_id)
+    if not task:
+        return jsonify({'error': 'Task not found'}), 404
+    project_id = task.project_id
+
+    # Check if user is a team member of the project
+    team_member = TeamMembers.query.filter_by(project_id=project_id, user_id=current_user.id).first()
+    if not team_member:
+        return jsonify({'error': 'Not authorized'}), 403
+
+    discussion = Discussions(
+        message=message,
+        project_id=project_id,
+        task_id=task_id,
+        parent_id=parent_id,
+        user_id=current_user.id
+    )
+
+    db.session.add(discussion)
+    db.session.commit()
+
+    return jsonify({
+        "message": "Thread created",
+        "thread_id": discussion.id
+    }), 201
+
+@discussion_bp.route('/task/<int:task_id>/threads', methods=['GET'])
+@login_required
+def get_task_threads(task_id):
+    task = Tasks.query.get_or_404(task_id)
+    
+    # Verify user is a team member
+    team_membership = TeamMembers.query.filter_by(
+        project_id=task.project_id,
+        user_id=current_user.id
+    ).first()
+    if not team_membership:
+        return jsonify({"error": "Not authorized"}), 403
+
+    # Get all threads for the task
+    threads = Discussions.query.filter_by(
+        task_id=task_id,
+        parent_id=None
+    ).order_by(Discussions.timestamp.desc()).all()
+
+    def serialize_thread(thread):
+        return {
+            "id": thread.id,
+            "message": thread.message,
+            "timestamp": thread.timestamp.isoformat(),
+            "user_id": thread.user_id,
+            "author_name": thread.author.name,
+            "replies": [{
+                "id": reply.id,
+                "message": reply.message,
+                "timestamp": reply.timestamp.isoformat(),
+                "user_id": reply.user_id,
+                "author_name": reply.author.name
+            } for reply in thread.replies]
+        }
+
+    return jsonify([serialize_thread(t) for t in threads]), 200

@@ -115,6 +115,9 @@ class Tasks(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    # Relationship to discussions/comments
+    discussions = db.relationship('Discussions', backref='task', lazy=True)
+
 
 # ------------------ DISCUSSIONS ------------------
 class Discussions(db.Model):
